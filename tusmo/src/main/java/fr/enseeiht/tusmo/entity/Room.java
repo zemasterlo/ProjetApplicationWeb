@@ -33,4 +33,13 @@ public class Room {
     @ToString.Exclude
     @JsonIgnore
     private User owner;
+
+    @ManyToMany
+    @JoinTable(
+        name = "room_players",
+        joinColumns = @JoinColumn(name = "room_id"),
+        inverseJoinColumns = @JoinColumn(name = "user_id")
+    )
+    @Builder.Default
+    private List<User> players = new ArrayList<>();
 }

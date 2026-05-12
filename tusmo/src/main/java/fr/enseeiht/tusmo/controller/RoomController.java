@@ -32,4 +32,16 @@ public class RoomController {
                 .map(ResponseEntity::ok)
                 .orElse(ResponseEntity.notFound().build());
     }
+
+    @PostMapping("/join")
+    public ResponseEntity<?> joinRoom(@RequestParam String code, @RequestParam Long userId) {
+        try {
+            Room room = roomService.joinRoom(code, userId);
+            return ResponseEntity.ok(room);
+        } catch (IllegalStateException e) {
+            return ResponseEntity.badRequest().body(e.getMessage());
+        } catch (RuntimeException e) {
+            return ResponseEntity.notFound().build();
+        }
+    }
 }

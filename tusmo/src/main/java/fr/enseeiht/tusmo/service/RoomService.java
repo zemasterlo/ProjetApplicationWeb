@@ -48,4 +48,28 @@ public class RoomService {
     public Optional<Room> getRoomByCode(String code) {
         return roomRepository.findByCode(code.toUpperCase());
     }
+
+    @Transactional
+    public Room joinRoom(String code, Long userId) {
+        Room room = roomRepository.findByCode(code.toUpperCase())
+                .orElseThrow(() -> new RuntimeException("Salle introuvable avec ce code."));
+        
+        if (room.getStatut() != RoomStatus.WAITING) {
+            throw new IllegalStateException("La partie a déjà commencé ou est terminée.");
+        }
+
+        if (room.getPlayers().size() >= room.getMaxJoueurs()) {
+            throw new IllegalStateException("La salle est complète.");
+        }
+
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new RuntimeException("Joueur introuvable."));
+
+        if (!room.getPlayers().contains(user)) {
+            room.getPlayers().add(user);
+            roomRepository.save(room);
+        }
+
+        return room;
+    }
 }
