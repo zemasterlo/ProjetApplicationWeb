@@ -1,0 +1,37 @@
+package fr.enseeiht.tusmo.controller;
+
+import fr.enseeiht.tusmo.entity.Game;
+import fr.enseeiht.tusmo.service.GameService;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
+
+@RestController
+@RequestMapping("/api/games")
+public class GameController {
+
+    @Autowired
+    private GameService gameService;
+
+    @PostMapping("/start")
+    public ResponseEntity<?> startGame(@RequestParam Long roomId) {
+        try {
+            return ResponseEntity.ok(gameService.startGame(roomId));
+        } catch (IllegalStateException e) {
+            return ResponseEntity.badRequest().body(e.getMessage());
+        }
+    }
+
+    @PostMapping("/{gameId}/end")
+    public ResponseEntity<Void> endGame(@PathVariable Long gameId) {
+        gameService.endGame(gameId);
+        return ResponseEntity.ok().build();
+    }
+
+    @GetMapping("/room/{roomId}")
+    public ResponseEntity<List<Game>> getGamesHistory(@PathVariable Long roomId) {
+        return ResponseEntity.ok(gameService.getGamesHistory(roomId));
+    }
+}
