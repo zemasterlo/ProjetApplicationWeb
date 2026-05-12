@@ -23,7 +23,6 @@ public class DictionaryLoader implements CommandLineRunner {
     private WordRepository wordRepository;
 
     @Override
-    @Override
     public void run(String... args) throws Exception {
         if (wordRepository.count() > 0) {
             System.out.println("Le dictionnaire est déjà rempli !");

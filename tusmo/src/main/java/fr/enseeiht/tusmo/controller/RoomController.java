@@ -17,7 +17,7 @@ public class RoomController {
 
     @PostMapping("/create")
     public ResponseEntity<Room> createRoom(@RequestParam String nom, @RequestParam Long ownerId, @RequestParam int maxJoueurs) {
-        Room room = roomService.createRoom(nom, ownerId, maxJoueurs);
+        Room room = roomService.createRoom(nom, maxJoueurs, ownerId);
         return ResponseEntity.ok(room);
     }
 
@@ -27,12 +27,12 @@ public class RoomController {
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<Room> getRoom(@PathVariable Long id) {
-        return roomService.getRoomById(id)
+    public ResponseEntity<Room> getRoom(@PathVariable String id) {
+        return roomService.getRoomByCode(id)
                 .map(ResponseEntity::ok)
                 .orElse(ResponseEntity.notFound().build());
     }
-
+    
     @PostMapping("/join")
     public ResponseEntity<?> joinRoom(@RequestParam String code, @RequestParam Long userId) {
         try {
