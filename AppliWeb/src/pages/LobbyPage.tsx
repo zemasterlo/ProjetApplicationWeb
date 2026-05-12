@@ -1,113 +1,86 @@
-import { useNavigate } from 'react-router-dom'
-
-// Données fictives pour visualiser la page
-const FAKE_GAMES = [
-  { id: 1, host: 'Alice', players: 1, maxPlayers: 2, wordLength: 6, status: 'En attente' },
-  { id: 2, host: 'Bob', players: 2, maxPlayers: 4, wordLength: 7, status: 'En attente' },
-  { id: 3, host: 'Charlie', players: 1, maxPlayers: 2, wordLength: 5, status: 'En attente' },
-]
+import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+// --- MODIFICATION : Importation du roomService depuis api.ts ---
+import { roomService } from '../services/api';
 
 export default function LobbyPage() {
-  const navigate = useNavigate()
+  const navigate = useNavigate();
+  // --- MODIFICATION : Ajout de state pour stocker les rooms récupérées du back ---
+  const [rooms, setRooms] = useState<any[]>([]);
 
-  function handleCreate() {
-    // ptdrrrrrrr on fait comment ?
-    navigate('/game/1')
+  // --- MODIFICATION : useEffect pour fetch les rooms en attente ---
+  useEffect(() => {
+    roomService.getWaitingRooms()
+      .then(data => setRooms(data))
+      .catch(err => console.error("Erreur récupération rooms:", err));
+  }, []);
+
+  async function handleCreate() {
+    // --- MODIFICATION : Appel API pour créer une room ---
+    try {
+      const currentUserId = 1; // Remplacer par l'ID réel depuis le context d'auth
+      const newRoom = await roomService.createRoom("Nouvelle Partie", currentUserId, 4);
+      navigate(`/game/${newRoom.id}`); // On navigue vers l'ID nouvellement créé
+    } catch (err) {
+      console.error("Erreur création:", err);
+    }
   }
 
-  function handleJoin(id: number) {
-    // ?
-    navigate(`/game/${id}`)
+  async function handleJoin(id: number) {
+    // --- MODIFICATION : Appel API pour rejoindre une room ---
+    try {
+      const currentUserId = 1; // Remplacer par l'ID réel
+      await roomService.joinRoom(id.toString(), currentUserId);
+      navigate(`/game/${id}`);
+    } catch (err) {
+      console.error("Erreur join:", err);
+    }
   }
 
   return (
     <div>
-      <div style={styles.header}>
-        <h1 style={styles.title}>Lobby</h1>
-        <button style={styles.createBtn} onClick={handleCreate}>
+      <div>
+        <h1>Lobby</h1>
+        <button 
+          
+          onClick={handleCreate}>
           + Créer une partie
         </button>
       </div>
 
-      <p style={styles.hint}>Rejoins une partie existante ou crée la tienne.</p>
+      <p>Rejoins une partie existante ou crée la tienne.</p>
 
-      <table style={styles.table}>
-        <thead>
-          <tr>
-            <th style={styles.th}>Hôte</th>
-            <th style={styles.th}>Joueurs</th>
-            <th style={styles.th}>Longueur du mot</th>
-            <th style={styles.th}>Statut</th>
-            <th style={styles.th}></th>
-          </tr>
-        </thead>
-        <tbody>
-          {FAKE_GAMES.map((game) => (
-            <tr key={game.id}>
-              <td style={styles.td}>{game.host}</td>
-              <td style={styles.td}>{game.players} / {game.maxPlayers}</td>
-              <td style={styles.td}>{game.wordLength} lettres</td>
-              <td style={styles.td}>{game.status}</td>
-              <td style={styles.td}>
-                <button style={styles.joinBtn} onClick={() => handleJoin(game.id)}>
-                  Rejoindre
-                </button>
-              </td>
+      <div>
+        <table>
+          <thead>
+            <tr>
+              <th>ID Room</th>
+              <th>Nom</th>
+              <th>Joueurs max</th>
+              <th></th>
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {/* --- MODIFICATION : Mapping des vraies rooms reçue par le backend --- */}
+            {rooms.length === 0 && (
+              <tr><td colSpan={4}>Aucune partie en attente</td></tr>
+            )}
+            {rooms.map((room) => (
+              <tr key={room.id}>
+                <td>{room.id}</td>
+                <td>{room.nom || 'Sans nom'}</td>
+                <td>{room.maxJoueurs}</td>
+                <td>
+                  <button 
+                    onClick={() => handleJoin(room.id)}>
+                    Rejoindre
+                  </button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </div>
-  )
-}
-
-const styles: Record<string, React.CSSProperties> = {
-  header: {
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: '0.5rem',
-  },
-  title: {
-    fontSize: '1.8rem',
-  },
-  createBtn: {
-    padding: '0.6rem 1.2rem',
-    background: '#1a73e8',
-    color: '#fff',
-    border: 'none',
-    borderRadius: '4px',
-    fontSize: '0.95rem',
-    cursor: 'pointer',
-  },
-  hint: {
-    color: '#666',
-    marginBottom: '1.5rem',
-  },
-  table: {
-    width: '100%',
-    borderCollapse: 'collapse',
-  },
-  th: {
-    textAlign: 'left',
-    padding: '0.6rem 1rem',
-    background: '#f0f0f0',
-    borderBottom: '1px solid #ddd',
-    fontSize: '0.85rem',
-    color: '#555',
-    textTransform: 'uppercase',
-    letterSpacing: '0.05em',
-  },
-  td: {
-    padding: '0.75rem 1rem',
-    borderBottom: '1px solid #eee',
-  },
-  joinBtn: {
-    padding: '0.4rem 0.9rem',
-    border: '1px solid #1a73e8',
-    color: '#1a73e8',
-    background: 'transparent',
-    borderRadius: '4px',
-    cursor: 'pointer',
-  },
+  );
 }

@@ -1,78 +1,49 @@
-
-const FAKE_RANKING = [
-  { rank: 1, username: 'Alice', wins: 42, played: 50, winRate: 84 },
-  { rank: 2, username: 'Bob', wins: 35, played: 48, winRate: 73 },
-  { rank: 3, username: 'Charlie', wins: 28, played: 40, winRate: 70 },
-  { rank: 4, username: 'Diana', wins: 20, played: 35, winRate: 57 },
-  { rank: 5, username: 'Eric', wins: 15, played: 30, winRate: 50 },
-]
+import { useState, useEffect } from 'react';
+// --- MODIFICATION : Import du service pour le score ---
+import { scoreService } from '../services/api';
 
 export default function LeaderboardPage() {
-  // faut trouver un moyen d'update le truc en direct, GET ? 
+  // --- MODIFICATION : Ajout du state de classement ---
+  const [ranking, setRanking] = useState<any[]>([]);
+
+  // --- MODIFICATION : Fetch classement sur mount ---
+  useEffect(() => {
+    // Note: l'API attend un gameId, ici on mocke avec gameId=1
+    scoreService.getLeaderboard(1)
+      .then(data => setRanking(data))
+      .catch(err => console.error("Erreur récupération leaderboard:", err));
+  }, []);
 
   return (
     <div>
-      <h1 style={styles.title}>Classement</h1>
-      <p style={styles.hint}>Les meilleurs joueurs de la plateforme.</p>
+      <h1>Classement</h1>
+      <p>Les meilleurs joueurs de la plateforme (pour la Game 1).</p>
 
-      <table style={styles.table}>
-        <thead>
-          <tr>
-            <th style={styles.th}>#</th>
-            <th style={styles.th}>Joueur</th>
-            <th style={styles.th}>Victoires</th>
-            <th style={styles.th}>Parties jouées</th>
-            <th style={styles.th}>% victoires</th>
-          </tr>
-        </thead>
-        <tbody>
-          {FAKE_RANKING.map((entry) => (
-            <tr key={entry.rank} style={entry.rank <= 3 ? styles.topRow : {}}>
-              <td style={styles.td}>
-                {entry.rank === 1 ? '🥇' : entry.rank === 2 ? '🥈' : entry.rank === 3 ? '🥉' : entry.rank}
-              </td>
-              <td style={{ ...styles.td, fontWeight: entry.rank <= 3 ? 'bold' : 'normal' }}>
-                {entry.username}
-              </td>
-              <td style={styles.td}>{entry.wins}</td>
-              <td style={styles.td}>{entry.played}</td>
-              <td style={styles.td}>{entry.winRate}%</td>
+      <div>
+        <table>
+          <thead>
+            <tr>
+              <th>ID Score</th>
+              <th>Essais</th>
+              <th>Temps total (s)</th>
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {ranking.length === 0 && (
+              <tr><td colSpan={3}>Aucun score enregistré</td></tr>
+            )}
+            {ranking.map((entry, idx) => (
+              <tr key={entry.id}>
+                <td>
+                  {idx === 0 ? '🥇' : idx === 1 ? '🥈' : idx === 2 ? '🥉' : idx + 1}
+                </td>
+                <td>{entry.nombreEssais} essais</td>
+                <td>{entry.tempsTotalSecondes} s</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </div>
-  )
-}
-
-const styles: Record<string, React.CSSProperties> = {
-  title: {
-    fontSize: '1.8rem',
-    marginBottom: '0.25rem',
-  },
-  hint: {
-    color: '#666',
-    marginBottom: '1.5rem',
-  },
-  table: {
-    width: '100%',
-    borderCollapse: 'collapse',
-  },
-  th: {
-    textAlign: 'left',
-    padding: '0.6rem 1rem',
-    background: '#f0f0f0',
-    borderBottom: '1px solid #ddd',
-    fontSize: '0.85rem',
-    color: '#555',
-    textTransform: 'uppercase',
-    letterSpacing: '0.05em',
-  },
-  td: {
-    padding: '0.75rem 1rem',
-    borderBottom: '1px solid #eee',
-  },
-  topRow: {
-    background: '#fffbea',
-  },
+  );
 }
