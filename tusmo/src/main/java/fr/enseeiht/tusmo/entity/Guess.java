@@ -31,4 +31,7 @@ public class Guess {
     private String motPropose;
     private LocalDateTime dateGuess;
     private boolean estCorrect;
+    
+    // Format: C=Correct, P=Present, A=Absent (ex: "C,A,P,C,A")
+    private String resultatLettres;
 }

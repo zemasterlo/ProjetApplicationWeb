@@ -44,12 +44,15 @@ public class GuessService {
 
         boolean estCorrect = tentative.equals(motCible);
         
+        String resultatLettres = evaluerTentative(tentative, motCible);
+
         Guess guess = Guess.builder()
                 .round(round)
                 .user(user)
                 .motPropose(tentative)
                 .dateGuess(LocalDateTime.now())
                 .estCorrect(estCorrect)
+                .resultatLettres(resultatLettres)
                 .build();
 
         return guessRepository.save(guess);
@@ -61,5 +64,50 @@ public class GuessService {
 
     public List<Guess> getGuessesByRoundAndUser(Long roundId, Long userId) {
         return guessRepository.findByRoundIdAndUserId(roundId, userId);
+    }
+
+    private String evaluerTentative(String tentative, String cible) {
+        int length = cible.length();
+        char[] resultat = new char[length];
+        boolean[] cibleMatch = new boolean[length];
+        boolean[] tentativeMatch = new boolean[length];
+
+        // 1. Lettres bien placées (Correct)
+        for (int i = 0; i < length; i++) {
+            if (tentative.charAt(i) == cible.charAt(i)) {
+                resultat[i] = 'C';
+                cibleMatch[i] = true;
+                tentativeMatch[i] = true;
+            }
+        }
+
+        // 2. Lettres mal placées (Present) et Absentes (Absent)
+        for (int i = 0; i < length; i++) {
+            if (!tentativeMatch[i]) {
+                char charCourant = tentative.charAt(i);
+                boolean trouve = false;
+                for (int j = 0; j < length; j++) {
+                    if (!cibleMatch[j] && cible.charAt(j) == charCourant) {
+                        resultat[i] = 'P';
+                        cibleMatch[j] = true;
+                        trouve = true;
+                        break; // On a trouvé une correspondance, on arrête de chercher
+                    }
+                }
+                if (!trouve) {
+                    resultat[i] = 'A';
+                }
+            }
+        }
+
+        // Convertir en String "C,A,P,C,A"
+        StringBuilder sb = new StringBuilder();
+        for (int i = 0; i < length; i++) {
+            sb.append(resultat[i]);
+            if (i < length - 1) {
+                sb.append(",");
+            }
+        }
+        return sb.toString();
     }
 }
