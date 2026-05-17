@@ -1,15 +1,15 @@
 import { Client, IMessage } from '@stomp/stompjs';
 import SockJS from 'sockjs-client';
 
-const WS_URL = import.meta.env.VITE_WS_URL || 'http://localhost:8080/ws';
+const WS_URL = import.meta.env.VITE_WS_URL || 'http://localhost:8080/tusmo-0.0.1-SNAPSHOT/ws';
 
 class WebSocketService {
   private client: Client | null = null;
-  private onMessageReceived: (msg: any) => void = () => {};
+  private onMessageReceived: (msg: any) => void = () => { };
 
   connect(roomId: string, callback: (msg: any) => void) {
     this.onMessageReceived = callback;
-    
+
     this.client = new Client({
       // Utilisation de SockJS qui est super robuste avec Spring Boot
       webSocketFactory: () => new SockJS(WS_URL),

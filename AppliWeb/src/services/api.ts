@@ -1,7 +1,7 @@
 import axios from 'axios';
 
 // --- MODIFICATION : Configuration de l'URL de base de l'API ---
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080/api';
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080/tusmo-0.0.1-SNAPSHOT/ws';
 
 export const api = axios.create({
   baseURL: API_URL,
