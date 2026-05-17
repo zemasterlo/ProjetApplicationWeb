@@ -7,7 +7,11 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.time.LocalDateTime;
+import java.util.HexFormat;
 
 @Service
 public class UserService {
@@ -25,11 +29,11 @@ public class UserService {
             throw new IllegalArgumentException("Cet email est déjà utilisé.");
         }
 
-        // Création de l'utilisateur
+        // Création de l'utilisateur avec le mot de passe hashé
         User user = User.builder()
                 .username(username)
                 .email(email)
-                .password(rawPassword) 
+                .password(hashPassword(rawPassword))
                 .dateInscription(LocalDateTime.now())
                 .statut(UserStatus.OFFLINE)
                 .build();
@@ -38,10 +42,45 @@ public class UserService {
     }
 
     @Transactional
+    public User loginUser(String username, String password) {
+        User user = userRepository.findByUsername(username)
+                .orElseThrow(() -> new IllegalArgumentException("Nom d'utilisateur ou mot de passe incorrect."));
+
+        String hashedInput = hashPassword(password);
+        if (!hashedInput.equals(user.getPassword())) {
+            throw new IllegalArgumentException("Nom d'utilisateur ou mot de passe incorrect.");
+        }
+
+        // Mettre le statut en ligne à la connexion
+        user.setStatut(UserStatus.ONLINE);
+        userRepository.save(user);
+
+        return user;
+    }
+
+    @Transactional
+    public void logoutUser(Long userId) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new RuntimeException("Utilisateur non trouvé"));
+        user.setStatut(UserStatus.OFFLINE);
+        userRepository.save(user);
+    }
+
+    @Transactional
     public void updateUserStatus(Long userId, UserStatus newStatus) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new RuntimeException("Utilisateur non trouvé"));
         user.setStatut(newStatus);
         userRepository.save(user);
+    }
+
+    private String hashPassword(String password) {
+        try {
+            MessageDigest digest = MessageDigest.getInstance("SHA-256");
+            byte[] hash = digest.digest(password.getBytes(StandardCharsets.UTF_8));
+            return HexFormat.of().formatHex(hash);
+        } catch (NoSuchAlgorithmException e) {
+            throw new RuntimeException("Erreur lors du hashage du mot de passe", e);
+        }
     }
 }

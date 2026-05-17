@@ -16,6 +16,8 @@ import java.util.List;
 @Service
 public class GuessService {
 
+    private static final int MAX_TENTATIVES = 6;
+
     @Autowired
     private GuessRepository guessRepository;
 
@@ -24,6 +26,12 @@ public class GuessService {
 
     @Autowired
     private UserRepository userRepository;
+
+    @Autowired
+    private GameService gameService;
+
+    @Autowired
+    private NotificationService notificationService;
 
 
     @Transactional
@@ -34,6 +42,20 @@ public class GuessService {
         
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new RuntimeException("Joueur introuvable"));
+
+        // Vérifier les tentatives précédentes du joueur dans ce round
+        List<Guess> tentativesPrecedentes = guessRepository.findByRoundIdAndUserId(roundId, userId);
+
+        // Bloquer si le joueur a déjà trouvé le mot
+        boolean dejaGagne = tentativesPrecedentes.stream().anyMatch(Guess::isEstCorrect);
+        if (dejaGagne) {
+            throw new IllegalStateException("Tu as déjà trouvé le mot de ce round !");
+        }
+
+        // Bloquer si le joueur a épuisé ses 6 essais
+        if (tentativesPrecedentes.size() >= MAX_TENTATIVES) {
+            throw new IllegalStateException("Tu as épuisé tes " + MAX_TENTATIVES + " tentatives pour ce round.");
+        }
 
         String motCible = round.getWord().getMot().toUpperCase();
         String tentative = motPropose.toUpperCase();
@@ -55,7 +77,17 @@ public class GuessService {
                 .resultatLettres(resultatLettres)
                 .build();
 
-        return guessRepository.save(guess);
+        Guess savedGuess = guessRepository.save(guess);
+
+        // Notifier les autres joueurs qu'une tentative a été faite
+        String roomCode = round.getGame().getRoom().getCode();
+        int numeroEssai = tentativesPrecedentes.size() + 1;
+        notificationService.notifyGuessMade(roomCode, user.getUsername(), numeroEssai, estCorrect);
+
+        // Vérifier si tous les joueurs ont fini → transition automatique
+        gameService.checkAndAdvanceRound(roundId);
+
+        return savedGuess;
     }
 
     public List<Guess> getGuessesByRound(Long roundId) {

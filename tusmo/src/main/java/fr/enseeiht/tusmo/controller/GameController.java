@@ -16,9 +16,11 @@ public class GameController {
     private GameService gameService;
 
     @PostMapping("/start")
-    public ResponseEntity<?> startGame(@RequestParam Long roomId) {
+    public ResponseEntity<?> startGame(
+            @RequestParam Long roomId,
+            @RequestParam(required = false, defaultValue = "3") int nombreRounds) {
         try {
-            return ResponseEntity.ok(gameService.startGame(roomId));
+            return ResponseEntity.ok(gameService.startGame(roomId, nombreRounds));
         } catch (IllegalStateException e) {
             return ResponseEntity.badRequest().body(e.getMessage());
         }

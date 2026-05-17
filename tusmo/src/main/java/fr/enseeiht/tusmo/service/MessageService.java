@@ -25,6 +25,9 @@ public class MessageService {
     @Autowired
     private UserRepository userRepository;
 
+    @Autowired
+    private NotificationService notificationService;
+
     @Transactional
     public Message sendMessage(Long roomId, Long userId, String contenu) {
         Room room = roomRepository.findById(roomId)
@@ -40,7 +43,11 @@ public class MessageService {
                 .dateEnvoi(LocalDateTime.now())
                 .build();
 
-        return messageRepository.save(message);
+        Message savedMessage = messageRepository.save(message);
+
+        notificationService.notifyNewMessage(room.getCode(), user.getUsername(), contenu);
+
+        return savedMessage;
     }
 
     public List<Message> getRoomMessages(Long roomId) {

@@ -1,5 +1,6 @@
 package fr.enseeiht.tusmo.controller;
 
+import fr.enseeiht.tusmo.dto.RoundHintDTO;
 import fr.enseeiht.tusmo.entity.Round;
 import fr.enseeiht.tusmo.service.GameService;
 import fr.enseeiht.tusmo.service.RoundService;
@@ -27,6 +28,16 @@ public class RoundController {
         }
     }
 
+    @GetMapping("/{roundId}/hint")
+    public ResponseEntity<?> getRoundHint(@PathVariable Long roundId) {
+        try {
+            RoundHintDTO hint = roundService.getRoundHint(roundId);
+            return ResponseEntity.ok(hint);
+        } catch (RuntimeException e) {
+            return ResponseEntity.notFound().build();
+        }
+    }
+
     @PostMapping("/{roundId}/end")
     public ResponseEntity<Round> endRound(@PathVariable Long roundId) {
         try {
@@ -36,3 +47,4 @@ public class RoundController {
         }
     }
 }
+

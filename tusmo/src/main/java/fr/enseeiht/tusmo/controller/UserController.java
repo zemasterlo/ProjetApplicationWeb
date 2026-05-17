@@ -31,6 +31,28 @@ public class UserController {
         }
     }
 
+    @PostMapping("/login")
+    public ResponseEntity<?> login(
+            @RequestParam String username,
+            @RequestParam String password) {
+        try {
+            User user = userService.loginUser(username, password);
+            return ResponseEntity.ok(user);
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.status(401).body(e.getMessage());
+        }
+    }
+
+    @PostMapping("/{id}/logout")
+    public ResponseEntity<Void> logout(@PathVariable Long id) {
+        try {
+            userService.logoutUser(id);
+            return ResponseEntity.ok().build();
+        } catch (RuntimeException e) {
+            return ResponseEntity.notFound().build();
+        }
+    }
+
     @GetMapping("/{id}")
     public ResponseEntity<User> getUser(@PathVariable Long id) {
         return userRepository.findById(id)

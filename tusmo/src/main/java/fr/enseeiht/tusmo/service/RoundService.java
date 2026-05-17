@@ -1,6 +1,8 @@
 package fr.enseeiht.tusmo.service;
 
+import fr.enseeiht.tusmo.dto.RoundHintDTO;
 import fr.enseeiht.tusmo.entity.Round;
+import fr.enseeiht.tusmo.entity.Word;
 import fr.enseeiht.tusmo.repository.RoundRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -28,6 +30,21 @@ public class RoundService {
         return roundRepository.findByGameIdAndNumeroRound(gameId, numeroRound);
     }
 
+    public RoundHintDTO getRoundHint(Long roundId) {
+        Round round = roundRepository.findById(roundId)
+                .orElseThrow(() -> new RuntimeException("Round introuvable"));
+
+        Word word = round.getWord();
+        String mot = word.getMot().toUpperCase();
+
+        return new RoundHintDTO(
+                round.getId(),
+                round.getNumeroRound(),
+                mot.charAt(0),
+                mot.length()
+        );
+    }
+
     @Transactional
     public Round endRound(Long roundId) {
         Round round = roundRepository.findById(roundId)
@@ -37,3 +54,4 @@ public class RoundService {
         return roundRepository.save(round);
     }
 }
+

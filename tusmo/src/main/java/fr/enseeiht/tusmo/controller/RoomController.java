@@ -44,4 +44,16 @@ public class RoomController {
             return ResponseEntity.notFound().build();
         }
     }
+
+    @PostMapping("/leave")
+    public ResponseEntity<?> leaveRoom(@RequestParam String code, @RequestParam Long userId) {
+        try {
+            Room room = roomService.leaveRoom(code, userId);
+            return ResponseEntity.ok(room);
+        } catch (IllegalStateException e) {
+            return ResponseEntity.badRequest().body(e.getMessage());
+        } catch (RuntimeException e) {
+            return ResponseEntity.notFound().build();
+        }
+    }
 }

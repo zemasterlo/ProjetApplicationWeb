@@ -25,6 +25,9 @@ public class Game {
     private LocalDateTime dateDebut;
     private LocalDateTime dateFin;
 
+    private int nombreRoundsTotal;
+    private int roundActuel;
+
     @Enumerated(EnumType.STRING)
     private GameStatus statut;
 }

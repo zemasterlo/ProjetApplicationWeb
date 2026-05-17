@@ -23,6 +23,9 @@ public class RoomService {
     @Autowired
     private UserRepository userRepository;
 
+    @Autowired
+    private NotificationService notificationService;
+
     @Transactional
     public Room createRoom(String nom, int maxJoueurs, Long ownerId) {
         User owner = userRepository.findById(ownerId)
@@ -68,8 +71,42 @@ public class RoomService {
         if (!room.getPlayers().contains(user)) {
             room.getPlayers().add(user);
             roomRepository.save(room);
+            notificationService.notifyPlayerJoined(room.getCode(), user.getUsername());
         }
 
         return room;
+    }
+
+    @Transactional
+    public Room leaveRoom(String code, Long userId) {
+        Room room = roomRepository.findByCode(code.toUpperCase())
+                .orElseThrow(() -> new RuntimeException("Salle introuvable avec ce code."));
+
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new RuntimeException("Joueur introuvable."));
+
+        if (!room.getPlayers().contains(user)) {
+            throw new IllegalStateException("Ce joueur n'est pas dans cette salle.");
+        }
+
+        // Retirer le joueur de la liste
+        room.getPlayers().remove(user);
+
+        // Si c'est le propriétaire qui quitte
+        if (room.getOwner().getId().equals(userId)) {
+            if (room.getPlayers().isEmpty()) {
+                // Plus personne dans la salle → on la ferme
+                room.setStatut(RoomStatus.CLOSED);
+            } else {
+                // Transférer la propriété au premier joueur restant
+                room.setOwner(room.getPlayers().get(0));
+            }
+        }
+
+        Room savedRoom = roomRepository.save(room);
+
+        notificationService.notifyPlayerLeft(room.getCode(), user.getUsername());
+
+        return savedRoom;
     }
 }
