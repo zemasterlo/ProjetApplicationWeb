@@ -58,3 +58,4 @@ public class GameController {
             return ResponseEntity.status(500).body("Erreur serveur: " + e.getMessage());
         }
     }
+} 
