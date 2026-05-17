@@ -105,19 +105,17 @@ export default function LobbyPage() {
           <thead>
             <tr>
               <th>Nom</th>
-              <th>Code</th>
               <th>Joueurs</th>
               <th></th>
             </tr>
           </thead>
           <tbody>
             {rooms.length === 0 && (
-              <tr><td colSpan={4}>Aucune partie en attente</td></tr>
+              <tr><td colSpan={3}>Aucune partie en attente</td></tr>
             )}
             {rooms.map((room) => (
               <tr key={room.id}>
                 <td>{room.nom || 'Sans nom'}</td>
-                <td><strong>{room.code}</strong></td>
                 <td>{room.players?.length || 0} / {room.maxJoueurs}</td>
                 <td>
                   <button onClick={() => handleJoin(room.id, room.code)}>

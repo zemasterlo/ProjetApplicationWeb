@@ -40,7 +40,11 @@ public class RoomService {
                 .dateCreation(LocalDateTime.now())
                 .maxJoueurs(maxJoueurs)
                 .owner(owner)
-                .build();               
+                .build();
+        
+        // Le créateur rejoint automatiquement la salle
+        room.getPlayers().add(owner);
+        
         return roomRepository.save(room);
     }
 
@@ -50,6 +54,10 @@ public class RoomService {
 
     public Optional<Room> getRoomByCode(String code) {
         return roomRepository.findByCode(code.toUpperCase());
+    }
+
+    public Optional<Room> getRoomById(Long id) {
+        return roomRepository.findById(id);
     }
 
     @Transactional
@@ -92,15 +100,16 @@ public class RoomService {
         // Retirer le joueur de la liste
         room.getPlayers().remove(user);
 
-        // Si c'est le propriétaire qui quitte
+        // Si plus personne dans la salle → on la supprime
+        if (room.getPlayers().isEmpty()) {
+            notificationService.notifyPlayerLeft(room.getCode(), user.getUsername());
+            roomRepository.delete(room);
+            return room;
+        }
+
+        // Si c'est le propriétaire qui quitte, transférer la propriété
         if (room.getOwner().getId().equals(userId)) {
-            if (room.getPlayers().isEmpty()) {
-                // Plus personne dans la salle → on la ferme
-                room.setStatut(RoomStatus.CLOSED);
-            } else {
-                // Transférer la propriété au premier joueur restant
-                room.setOwner(room.getPlayers().get(0));
-            }
+            room.setOwner(room.getPlayers().get(0));
         }
 
         Room savedRoom = roomRepository.save(room);
