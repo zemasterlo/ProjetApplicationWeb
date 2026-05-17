@@ -1,0 +1,4 @@
+2026-05-17 21:41:41.900792+02:00 jdbc[13]: exception
+org.h2.jdbc.JdbcSQLSyntaxErrorException: Erreur de syntaxe dans l'instruction SQL "SELECT * FROM USERS SCORES [*]ROOMS"
+Syntax error in SQL statement "SELECT * FROM USERS SCORES [*]ROOMS"; SQL statement:
+SELECT * FROM USERS SCORES ROOMS [42000-240]
