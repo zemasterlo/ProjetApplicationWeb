@@ -11,16 +11,13 @@ export default function LoginPage() {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     try {
-      // --- MODIFICATION : Appel à la logique utilisateur backend via userService ---
-      // Si un endpoint login existe sur Spring Boot, on fait authService.login.
-      // S'il ne l'est pas, on simule l'appel :
-      const response = await userService.login({ username, password });
+      const response = await userService.login(username, password);
       
-      console.log('Login REST successé');
+      console.log('Login réussi');
 
-      // Si le backend renvoie des infos, on set l'ID localement
-      if (response && response.userId) {
-         localStorage.setItem('userId', response.userId.toString());
+      if (response && response.id) {
+        localStorage.setItem('userId', response.id.toString());
+        localStorage.setItem('username', response.username);
       }
       
       navigate('/');

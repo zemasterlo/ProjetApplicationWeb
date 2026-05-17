@@ -21,9 +21,9 @@ export default function GamePage() {
   const navigate = useNavigate();
   const [input, setInput] = useState('');
   const [chatInput, setChatInput] = useState('');
-  
+
   const [grid, setGrid] = useState(EMPY_GRID);
-  const [chatMessages, setChatMessages] = useState<{id?: number, contenu: string, userId?: number}[]>([]);
+  const [chatMessages, setChatMessages] = useState<{ id?: number, contenu: string, userId?: number }[]>([]);
 
   // TODO: Prendre l'ID du User connecté via un contexte ou localStorage
   const currentUserId = localStorage.getItem('userId') ? parseInt(localStorage.getItem('userId') as string) : 1;
@@ -33,17 +33,17 @@ export default function GamePage() {
       // --- MODIFICATION : Récupération des historiques de requêtes et de messages ---
       guessService.getGuessesByRound(Number(id))
         .then(data => {
-            console.log("Guesses de l'API:", data);
-            // On peut mapper les guesses ici si l'API retourne le détail
+          console.log("Guesses de l'API:", data);
+          // On peut mapper les guesses ici si l'API retourne le détail
         })
         .catch(err => console.error("Erreur REST Guesses:", err));
 
       messageService.getRoomMessages(Number(id))
         .then(data => {
-            setChatMessages(data);
+          setChatMessages(data);
         })
         .catch(err => console.error("Erreur REST Chat:", err));
-        
+
       // --- MODIFICATION : Branchement WebSocket réel ---
       wsService.connect(id, (incomingMessage) => {
         // En fonction du type de retour Spring Boot, on ajoute à la liste
@@ -57,19 +57,19 @@ export default function GamePage() {
   async function handleGuess(e: React.FormEvent) {
     e.preventDefault();
     if (!id || input.length < 5) return;
-    
+
     try {
       // --- MODIFICATION : Appel de l'API de tentative du GuessController ---
       const newGuess = await guessService.faireTentative(Number(id), currentUserId, input);
       console.log('Réponse de Spring Boot:', newGuess);
-      
+
       // Mettre à jour l'affichage de la grille ici si le backend retourne l'état détaillé
       // (Pour l'instant, on laisse l'affichage abstrait)
-      
+
     } catch (error) {
       console.error("Tentative échouée", error);
     }
-    
+
     setInput('');
   }
 
@@ -81,25 +81,25 @@ export default function GamePage() {
       // --- MODIFICATION : Appel de l'API messageService pour persister et broadcaster le chat ---
       await messageService.sendMessage(Number(id), currentUserId, chatInput);
       console.log("Message envoyé REST");
-      
+
       // Ou utilisation du WebSocket direct (selon l'architecture Spring Boot)
       // wsService.sendMessage(id, { userId: currentUserId, contenu: chatInput });
     } catch (err) {
       console.error("Erreur chat:", err);
     }
-    
+
     setChatInput('');
   }
 
   return (
     <div>
-      
+
       {/* JEU */}
       <div>
         <div>
           <h2>Partie #{id}</h2>
-          <button 
-            
+          <button
+
             onClick={() => navigate('/')}>
             Quitter
           </button>
@@ -113,7 +113,7 @@ export default function GamePage() {
               {row.map((cell: any, colIdx: number) => (
                 <div
                   key={colIdx}
-                  
+
                   style={{
                     backgroundColor: cellColors[cell.state as CellState],
                     color: cell.state === 'empty' ? '#333' : '#fff',
@@ -128,14 +128,14 @@ export default function GamePage() {
 
         <form onSubmit={handleGuess}>
           <input
-            
+
             type="text"
             value={input}
             onChange={(e) => setInput(e.target.value.toUpperCase())}
             maxLength={5}
             placeholder="Tape un mot..."
           />
-          <button  type="submit">
+          <button type="submit">
             Valider
           </button>
         </form>
@@ -157,13 +157,13 @@ export default function GamePage() {
 
         <form onSubmit={handleChat}>
           <input
-            
+
             type="text"
             value={chatInput}
             onChange={(e) => setChatInput(e.target.value)}
             placeholder="Message..."
           />
-          <button  type="submit">
+          <button type="submit">
             Envoyer
           </button>
         </form>

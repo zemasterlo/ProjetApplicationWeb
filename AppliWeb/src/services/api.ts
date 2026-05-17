@@ -1,7 +1,7 @@
 import axios from 'axios';
 
 // --- MODIFICATION : Configuration de l'URL de base de l'API ---
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080/tusmo-0.0.1-SNAPSHOT/ws';
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080/tusmo-0.0.1-SNAPSHOT/api';
 
 export const api = axios.create({
   baseURL: API_URL,
@@ -33,10 +33,12 @@ export const userService = {
     const response = await api.patch(`/users/${id}/status`, null, { params: { status } });
     return response.data;
   },
-  // endpoint fictif si géré par Spring Security, ou à adapter
-  login: async (credentials: any) => {
-    const response = await api.post('/users/login', credentials);
+  login: async (username: string, password: string) => {
+    const response = await api.post('/users/login', null, { params: { username, password } });
     return response.data;
+  },
+  logout: async (id: number) => {
+    await api.post(`/users/${id}/logout`);
   }
 };
 
