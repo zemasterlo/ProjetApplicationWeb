@@ -77,6 +77,10 @@ export const gameService = {
   getGamesHistory: async (roomId: number) => {
     const response = await api.get(`/games/room/${roomId}`);
     return response.data;
+  },
+  getActiveGameState: async (roomId: number, userId: number) => {
+    const response = await api.get(`/games/room/${roomId}/active`, { params: { userId } });
+    return response.data;
   }
 };
 

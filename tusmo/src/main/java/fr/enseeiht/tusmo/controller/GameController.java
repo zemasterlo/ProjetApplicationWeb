@@ -38,4 +38,23 @@ public class GameController {
     public ResponseEntity<List<Game>> getGamesHistory(@PathVariable Long roomId) {
         return ResponseEntity.ok(gameService.getGamesHistory(roomId));
     }
-}
+
+    /**
+     * Récupère l'état actuel d'une partie en cours pour permettre la reprise.
+     * Retourne : gameId, roundId, premiereLettre, longueurMot, numeroRound, nombreRoundsTotal,
+     * et les tentatives déjà faites par le joueur.
+     */
+    @GetMapping("/room/{roomId}/active")
+    public ResponseEntity<?> getActiveGameState(
+            @PathVariable Long roomId,
+            @RequestParam Long userId) {
+        try {
+            var state = gameService.getActiveGameState(roomId, userId);
+            if (state == null) {
+                return ResponseEntity.noContent().build();
+            }
+            return ResponseEntity.ok(state);
+        } catch (RuntimeException e) {
+            return ResponseEntity.status(500).body("Erreur serveur: " + e.getMessage());
+        }
+    }

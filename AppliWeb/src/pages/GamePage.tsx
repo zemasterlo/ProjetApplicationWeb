@@ -97,6 +97,48 @@ export default function GamePage() {
           author: m.user?.username || 'Inconnu',
           text: m.contenu
         })))
+
+        // Vérifier s'il y a une partie en cours (reprise)
+        try {
+          const state = await gameService.getActiveGameState(roomId, userId)
+          if (state) {
+            setGameStarted(true)
+            setRoundId(state.roundId)
+            setPremiereLettre(state.premiereLettre)
+            setLongueurMot(state.longueurMot)
+            setNumeroRound(state.numeroRound)
+            setNombreRoundsTotal(state.nombreRoundsTotal)
+
+            // Reconstruire la grille avec les tentatives déjà faites
+            initGrid(state.longueurMot, state.premiereLettre)
+            const existingGuesses = state.guesses || []
+            if (existingGuesses.length > 0) {
+              setGrid(prev => {
+                const newGrid = [...prev]
+                existingGuesses.forEach((g: any, idx: number) => {
+                  newGrid[idx] = parseResultat(g.motPropose, g.resultatLettres)
+                })
+                return newGrid
+              })
+              setTentativeNum(existingGuesses.length)
+
+              // Vérifier si le joueur a déjà trouvé le mot
+              const alreadyWon = existingGuesses.some((g: any) => g.estCorrect)
+              if (alreadyWon) {
+                setRoundWon(true)
+                setInfoMessage('Tu as déjà trouvé le mot ! 🎉')
+              } else if (existingGuesses.length >= MAX_TENTATIVES) {
+                setRoundLost(true)
+                setInfoMessage('Tu as épuisé tes 6 essais...')
+              } else {
+                setInfoMessage('Partie reprise ! Continue à jouer.')
+              }
+            }
+          }
+        } catch (resumeErr) {
+          // Pas de partie en cours, c'est normal
+          console.log('Pas de partie active à reprendre')
+        }
       } catch (err) {
         console.error('Erreur initialisation:', err)
       }

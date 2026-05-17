@@ -178,5 +178,46 @@ public class GameService {
     public List<Game> getGamesHistory(Long roomId) {
         return gameRepository.findByRoomId(roomId);
     }
-}
 
+    /**
+     * Récupère l'état complet d'une partie en cours pour permettre la reprise.
+     */
+    public Map<String, Object> getActiveGameState(Long roomId, Long userId) {
+        Optional<Game> activeGame = gameRepository.findByRoomIdAndStatut(roomId, GameStatus.IN_PROGRESS);
+        if (activeGame.isEmpty()) {
+            return null;
+        }
+
+        Game game = activeGame.get();
+        int currentRoundNum = game.getRoundActuel();
+
+        Optional<Round> currentRound = roundRepository.findByGameIdAndNumeroRound(game.getId(), currentRoundNum);
+        if (currentRound.isEmpty()) {
+            return null;
+        }
+
+        Round round = currentRound.get();
+        String mot = round.getWord().getMot().toUpperCase();
+
+        // Récupérer les tentatives déjà faites par ce joueur
+        List<Guess> userGuesses = guessRepository.findByRoundIdAndUserId(round.getId(), userId);
+        List<Map<String, Object>> guessesData = new ArrayList<>();
+        for (Guess g : userGuesses) {
+            guessesData.add(Map.of(
+                    "motPropose", g.getMotPropose(),
+                    "resultatLettres", g.getResultatLettres(),
+                    "estCorrect", g.isEstCorrect()
+            ));
+        }
+
+        return Map.of(
+                "gameId", game.getId(),
+                "roundId", round.getId(),
+                "premiereLettre", String.valueOf(mot.charAt(0)),
+                "longueurMot", mot.length(),
+                "numeroRound", currentRoundNum,
+                "nombreRoundsTotal", game.getNombreRoundsTotal(),
+                "guesses", guessesData
+        );
+    }
+}
