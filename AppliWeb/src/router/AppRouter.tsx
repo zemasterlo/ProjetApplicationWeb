@@ -1,5 +1,6 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import Layout from '../components/Layout'
+import ProtectedRoute from '../components/ProtectedRoute'
 import LoginPage from '../pages/LoginPage'
 import RegisterPage from '../pages/RegisterPage'
 import LobbyPage from '../pages/LobbyPage'
@@ -15,12 +16,14 @@ export default function AppRouter() {
         <Route path="/login" element={<LoginPage />} />
         <Route path="/register" element={<RegisterPage />} />
 
-        {/* Pages avec navbar */}
-        <Route element={<Layout />}>
-          <Route path="/" element={<LobbyPage />} />
-          <Route path="/game/:id" element={<GamePage />} />
-          <Route path="/leaderboard" element={<LeaderboardPage />} />
-          <Route path="/history" element={<HistoryPage />} />
+        {/* Pages protégées (nécessitent d'être connecté) */}
+        <Route element={<ProtectedRoute />}>
+          <Route element={<Layout />}>
+            <Route path="/" element={<LobbyPage />} />
+            <Route path="/game/:id" element={<GamePage />} />
+            <Route path="/leaderboard" element={<LeaderboardPage />} />
+            <Route path="/history" element={<HistoryPage />} />
+          </Route>
         </Route>
 
         {/* Fallback */}
