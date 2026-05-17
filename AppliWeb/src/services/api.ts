@@ -58,12 +58,16 @@ export const roomService = {
   joinRoom: async (code: string, userId: number) => {
     const response = await api.post('/rooms/join', null, { params: { code, userId } });
     return response.data;
+  },
+  leaveRoom: async (code: string, userId: number) => {
+    const response = await api.post('/rooms/leave', null, { params: { code, userId } });
+    return response.data;
   }
 };
 
 export const gameService = {
-  startGame: async (roomId: number) => {
-    const response = await api.post('/games/start', null, { params: { roomId } });
+  startGame: async (roomId: number, nombreRounds: number = 3) => {
+    const response = await api.post('/games/start', null, { params: { roomId, nombreRounds } });
     return response.data;
   },
   endGame: async (gameId: number) => {
@@ -83,6 +87,10 @@ export const roundService = {
   },
   endRound: async (roundId: number) => {
     const response = await api.post(`/rounds/${roundId}/end`);
+    return response.data;
+  },
+  getHint: async (roundId: number) => {
+    const response = await api.get(`/rounds/${roundId}/hint`);
     return response.data;
   }
 };
