@@ -1,10 +1,21 @@
 import { Outlet, NavLink, useNavigate } from 'react-router-dom'
+import { userService } from '../services/api'
 
 export default function Layout() {
   const navigate = useNavigate()
 
-  function handleLogout() {
-    // TODO: vider le token JWT quand l'auth sera branchée
+  async function handleLogout() {
+    const userId = localStorage.getItem('userId')
+    if (userId) {
+      try {
+        await userService.logout(Number(userId))
+      } catch (err) {
+        console.error('Erreur logout:', err)
+      }
+    }
+    localStorage.removeItem('userId')
+    localStorage.removeItem('username')
+    localStorage.removeItem('token')
     navigate('/login')
   }
 
