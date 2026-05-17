@@ -1,6 +1,5 @@
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-// --- MODIFICATION : Importation de userService ---
 import { userService } from '../services/api';
 
 export default function RegisterPage() {
@@ -8,22 +7,32 @@ export default function RegisterPage() {
   const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    setError('');
+
+    if (password.length < 4) {
+      setError('Le mot de passe doit contenir au moins 4 caractères.');
+      return;
+    }
+
     try {
-      // --- MODIFICATION : Appel API au UserController.java ---
       const newUser = await userService.register(username, email, password);
-      console.log('Utilisateur créé:', newUser);
-      
-      // Stocker l'ID localement pour le réutiliser
+
       if (newUser && newUser.id) {
         localStorage.setItem('userId', newUser.id.toString());
+        localStorage.setItem('username', newUser.username);
       }
       
       navigate('/');
-    } catch (e) {
-      console.error("Erreur lors de l'inscription:", e);
+    } catch (err: any) {
+      if (err.response?.data) {
+        setError(err.response.data);
+      } else {
+        setError("Erreur lors de l'inscription. Réessaye plus tard.");
+      }
     }
   }
 
@@ -33,11 +42,16 @@ export default function RegisterPage() {
         <h1>TUSMO</h1>
         <h2>Créer un compte</h2>
 
+        {error && (
+          <p style={{ color: '#d93025', background: '#fce8e6', padding: '0.5rem 1rem', borderRadius: '6px' }}>
+            {error}
+          </p>
+        )}
+
         <form onSubmit={handleSubmit}>
           <div>
             <label>Pseudo</label>
             <input
-              
               type="text"
               value={username}
               onChange={(e) => setUsername(e.target.value)}
@@ -49,7 +63,6 @@ export default function RegisterPage() {
           <div>
             <label>Email</label>
             <input
-              
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
@@ -61,7 +74,6 @@ export default function RegisterPage() {
           <div>
             <label>Mot de passe</label>
             <input
-              
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
@@ -70,7 +82,7 @@ export default function RegisterPage() {
             />
           </div>
 
-          <button  type="submit">
+          <button type="submit">
             S'inscrire
           </button>
         </form>

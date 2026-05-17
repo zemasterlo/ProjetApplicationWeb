@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { guessService, messageService, roundService, roomService, gameService } from '../services/api'
+import { guessService, messageService, roomService, gameService } from '../services/api'
 import { wsService } from '../services/websocket'
 
 type CellState = 'correct' | 'present' | 'absent' | 'empty'
@@ -39,6 +39,22 @@ function parseResultat(mot: string, resultat: string): Cell[] {
     letter,
     state: etats[i] === 'C' ? 'correct' : etats[i] === 'P' ? 'present' : 'absent',
   }))
+}
+
+// Créer une grille vierge de MAX_TENTATIVES x wordLength
+function createEmptyGrid(wordLength: number, firstLetter: string): Cell[][] {
+  const newGrid: Cell[][] = []
+  for (let r = 0; r < MAX_TENTATIVES; r++) {
+    const row: Cell[] = []
+    for (let c = 0; c < wordLength; c++) {
+      row.push({
+        letter: c === 0 ? firstLetter.toUpperCase() : '',
+        state: 'empty',
+      })
+    }
+    newGrid.push(row)
+  }
+  return newGrid
 }
 
 export default function GamePage() {
@@ -80,78 +96,12 @@ export default function GamePage() {
   // Partie démarrée ?
   const [gameStarted, setGameStarted] = useState(false)
 
-  // Initialisation : récupérer les infos de la salle
-  useEffect(() => {
-    async function init() {
-      try {
-        const room = await roomService.getRoom(id!)
-        setRoomCode(room.code)
+  // Ref pour le callback WS (éviter les closures stale)
+  const wsCallbackRef = useRef<(msg: any) => void>(() => {})
 
-        // Se connecter au WebSocket
-        wsService.connect(room.code, handleWebSocketMessage)
-
-        // Charger les messages existants
-        const msgs = await messageService.getRoomMessages(roomId)
-        setChatMessages(msgs.map((m: any) => ({
-          id: m.id,
-          author: m.user?.username || 'Inconnu',
-          text: m.contenu
-        })))
-
-        // Vérifier s'il y a une partie en cours (reprise)
-        try {
-          const state = await gameService.getActiveGameState(roomId, userId)
-          if (state) {
-            setGameStarted(true)
-            setRoundId(state.roundId)
-            setPremiereLettre(state.premiereLettre)
-            setLongueurMot(state.longueurMot)
-            setNumeroRound(state.numeroRound)
-            setNombreRoundsTotal(state.nombreRoundsTotal)
-
-            // Reconstruire la grille avec les tentatives déjà faites
-            initGrid(state.longueurMot, state.premiereLettre)
-            const existingGuesses = state.guesses || []
-            if (existingGuesses.length > 0) {
-              setGrid(prev => {
-                const newGrid = [...prev]
-                existingGuesses.forEach((g: any, idx: number) => {
-                  newGrid[idx] = parseResultat(g.motPropose, g.resultatLettres)
-                })
-                return newGrid
-              })
-              setTentativeNum(existingGuesses.length)
-
-              // Vérifier si le joueur a déjà trouvé le mot
-              const alreadyWon = existingGuesses.some((g: any) => g.estCorrect)
-              if (alreadyWon) {
-                setRoundWon(true)
-                setInfoMessage('Tu as déjà trouvé le mot ! 🎉')
-              } else if (existingGuesses.length >= MAX_TENTATIVES) {
-                setRoundLost(true)
-                setInfoMessage('Tu as épuisé tes 6 essais...')
-              } else {
-                setInfoMessage('Partie reprise ! Continue à jouer.')
-              }
-            }
-          }
-        } catch (resumeErr) {
-          // Pas de partie en cours, c'est normal
-          console.log('Pas de partie active à reprendre')
-        }
-      } catch (err) {
-        console.error('Erreur initialisation:', err)
-      }
-    }
-    init()
-
-    return () => {
-      wsService.disconnect()
-    }
-  }, [id])
-
-  // Gérer les messages WebSocket
-  function handleWebSocketMessage(msg: any) {
+  // ─────────────── WebSocket handler ───────────────
+  // On met à jour la ref à chaque render pour avoir accès aux derniers states
+  wsCallbackRef.current = (msg: any) => {
     switch (msg.type) {
       case 'PLAYER_JOINED':
         setInfoMessage(`${msg.data.username} a rejoint la salle`)
@@ -161,34 +111,40 @@ export default function GamePage() {
         setInfoMessage(`${msg.data.username} a quitté la salle`)
         break
 
-      case 'GAME_STARTED':
+      case 'GAME_STARTED': {
+        const len = Number(msg.data.longueurMot)
+        const letter = String(msg.data.premiereLettre)
         setGameStarted(true)
-        setRoundId(msg.data.roundId)
-        setPremiereLettre(msg.data.premiereLettre)
-        setLongueurMot(msg.data.longueurMot)
-        setNumeroRound(msg.data.numeroRound)
-        initGrid(msg.data.longueurMot, msg.data.premiereLettre)
+        setRoundId(Number(msg.data.roundId))
+        setPremiereLettre(letter)
+        setLongueurMot(len)
+        setNumeroRound(Number(msg.data.numeroRound))
+        setGrid(createEmptyGrid(len, letter))
         setRoundWon(false)
         setRoundLost(false)
+        setGameFinished(false)
         setTentativeNum(0)
+        setInput('')
+        setOpponents([])
         setInfoMessage('La partie commence !')
         break
+      }
 
       case 'GUESS_MADE':
         if (msg.data.username !== username) {
           setOpponents(prev => {
-            const existing = prev.find(o => o.username === msg.data.username)
+            const existing = prev.find((o: OpponentInfo) => o.username === msg.data.username)
             if (existing) {
-              return prev.map(o =>
+              return prev.map((o: OpponentInfo) =>
                 o.username === msg.data.username
-                  ? { ...o, tentatives: msg.data.numeroEssai, aGagne: msg.data.estCorrect }
+                  ? { ...o, tentatives: Number(msg.data.numeroEssai), aGagne: Boolean(msg.data.estCorrect) }
                   : o
               )
             } else {
               return [...prev, {
                 username: msg.data.username,
-                tentatives: msg.data.numeroEssai,
-                aGagne: msg.data.estCorrect
+                tentatives: Number(msg.data.numeroEssai),
+                aGagne: Boolean(msg.data.estCorrect),
               }]
             }
           })
@@ -199,128 +155,215 @@ export default function GamePage() {
         setInfoMessage(`Round ${msg.data.numeroRound} terminé ! Le mot était : ${msg.data.motCorrect}`)
         break
 
-      case 'NEW_ROUND':
-        setRoundId(msg.data.roundId)
-        setPremiereLettre(msg.data.premiereLettre)
-        setLongueurMot(msg.data.longueurMot)
-        setNumeroRound(msg.data.numeroRound)
-        initGrid(msg.data.longueurMot, msg.data.premiereLettre)
+      case 'NEW_ROUND': {
+        const len = Number(msg.data.longueurMot)
+        const letter = String(msg.data.premiereLettre)
+        setRoundId(Number(msg.data.roundId))
+        setPremiereLettre(letter)
+        setLongueurMot(len)
+        setNumeroRound(Number(msg.data.numeroRound))
+        setGrid(createEmptyGrid(len, letter))
         setRoundWon(false)
         setRoundLost(false)
         setTentativeNum(0)
+        setInput('')
         setOpponents([])
         setInfoMessage(`Round ${msg.data.numeroRound} commence !`)
         break
+      }
 
       case 'GAME_ENDED':
         setGameFinished(true)
-        setInfoMessage('Partie terminée !')
+        setGameStarted(false)
+        setInfoMessage('Partie terminée ! 🏆')
         break
 
       case 'NEW_MESSAGE':
         setChatMessages(prev => [...prev, {
           id: Date.now(),
           author: msg.data.username,
-          text: msg.data.contenu
+          text: msg.data.contenu,
         }])
         break
     }
   }
 
-  // Initialiser la grille vide avec la première lettre pré-remplie
-  function initGrid(wordLength: number, firstLetter: string) {
-    const newGrid: Cell[][] = []
-    for (let r = 0; r < MAX_TENTATIVES; r++) {
-      const row: Cell[] = []
-      for (let c = 0; c < wordLength; c++) {
-        if (c === 0) {
-          row.push({ letter: firstLetter.toUpperCase(), state: 'empty' })
-        } else {
-          row.push({ letter: '', state: 'empty' })
-        }
-      }
-      newGrid.push(row)
+  // ─────────────── Initialisation ───────────────
+  useEffect(() => {
+    if (!id || isNaN(roomId) || !userId) {
+      navigate('/')
+      return
     }
-    setGrid(newGrid)
-  }
 
-  // Démarrer la partie (uniquement pour le propriétaire de la salle)
+    async function init() {
+      try {
+        // 1. Charger les infos de la salle
+        const room = await roomService.getRoom(id!)
+        if (!room) {
+          setInfoMessage('Salle introuvable')
+          return
+        }
+        setRoomCode(room.code)
+
+        // 2. Se connecter au WebSocket via le code de la salle
+        wsService.connect(room.code, (msg: any) => wsCallbackRef.current(msg))
+
+        // 3. Charger les messages existants du chat
+        try {
+          const msgs = await messageService.getRoomMessages(roomId)
+          setChatMessages(msgs.map((m: any) => ({
+            id: m.id,
+            author: m.user?.username || 'Inconnu',
+            text: m.contenu,
+          })))
+        } catch {
+          // Pas de messages existants
+        }
+
+        // 4. Vérifier s'il y a une partie en cours (reprise après navigation)
+        try {
+          const state = await gameService.getActiveGameState(roomId, userId)
+          if (state && state.roundId) {
+            const len = Number(state.longueurMot)
+            const letter = String(state.premiereLettre)
+
+            setGameStarted(true)
+            setRoundId(Number(state.roundId))
+            setPremiereLettre(letter)
+            setLongueurMot(len)
+            setNumeroRound(Number(state.numeroRound))
+            setNombreRoundsTotal(Number(state.nombreRoundsTotal))
+
+            // Reconstruire la grille
+            const freshGrid = createEmptyGrid(len, letter)
+            const existingGuesses = state.guesses || []
+
+            existingGuesses.forEach((g: any, idx: number) => {
+              if (idx < MAX_TENTATIVES) {
+                freshGrid[idx] = parseResultat(g.motPropose, g.resultatLettres)
+              }
+            })
+
+            setGrid(freshGrid)
+            setTentativeNum(existingGuesses.length)
+
+            // Vérifier si le joueur a déjà fini
+            const alreadyWon = existingGuesses.some((g: any) => g.estCorrect)
+            if (alreadyWon) {
+              setRoundWon(true)
+              setInfoMessage('Tu as déjà trouvé le mot ! 🎉 En attente des autres joueurs...')
+            } else if (existingGuesses.length >= MAX_TENTATIVES) {
+              setRoundLost(true)
+              setInfoMessage('Tu as épuisé tes 6 essais. En attente des autres joueurs...')
+            } else {
+              setInfoMessage(`Partie reprise — Round ${state.numeroRound}`)
+            }
+          }
+        } catch {
+          // Pas de partie en cours, afficher le bouton "Lancer"
+        }
+
+      } catch (err) {
+        console.error('Erreur initialisation:', err)
+        setInfoMessage('Erreur de chargement de la salle.')
+      }
+    }
+
+    init()
+
+    return () => {
+      wsService.disconnect()
+    }
+  }, [id])
+
+  // ─────────────── Démarrer la partie ───────────────
   async function handleStartGame() {
     try {
-      const game = await gameService.startGame(roomId, nombreRoundsTotal)
-      console.log('Partie démarrée:', game)
-    } catch (err) {
-      console.error('Erreur démarrage:', err)
+      setInfoMessage('Lancement en cours...')
+      await gameService.startGame(roomId, nombreRoundsTotal)
+      // Le WebSocket GAME_STARTED fera le reste
+    } catch (err: any) {
+      const msg = err.response?.data || 'Erreur lors du lancement de la partie'
+      setInfoMessage(typeof msg === 'string' ? msg : JSON.stringify(msg))
     }
   }
 
-  // Soumettre une tentative
+  // ─────────────── Soumettre une tentative ───────────────
   async function handleGuess(e: React.FormEvent) {
     e.preventDefault()
-    if (!roundId || roundWon || roundLost || !input) return
+    if (!roundId || roundWon || roundLost || gameFinished) return
 
-    // Pré-remplir la première lettre si nécessaire
-    let motComplet = input.toUpperCase()
+    const motComplet = input.toUpperCase().trim()
+
+    if (!motComplet) {
+      setInfoMessage('Tape un mot avant de valider !')
+      return
+    }
+
     if (motComplet.length !== longueurMot) {
-      setInfoMessage(`Le mot doit faire ${longueurMot} lettres !`)
+      setInfoMessage(`Le mot doit faire exactement ${longueurMot} lettres (tu en as tapé ${motComplet.length}).`)
       return
     }
 
     try {
       const result = await guessService.faireTentative(roundId, userId, motComplet)
 
-      // Mettre à jour la grille avec le résultat
+      // Mettre à jour la grille avec le résultat du backend
       const cells = parseResultat(result.motPropose, result.resultatLettres)
+      const currentTentative = tentativeNum
+
       setGrid(prev => {
-        const newGrid = [...prev]
-        newGrid[tentativeNum] = cells
+        const newGrid = prev.map(row => [...row])
+        newGrid[currentTentative] = cells
         return newGrid
       })
 
-      setTentativeNum(prev => prev + 1)
+      const nextTentative = currentTentative + 1
+      setTentativeNum(nextTentative)
 
       if (result.estCorrect) {
         setRoundWon(true)
-        setInfoMessage('Bravo ! Tu as trouvé le mot ! 🎉')
-      } else if (tentativeNum + 1 >= MAX_TENTATIVES) {
+        setInfoMessage(`Bravo ! Tu as trouvé le mot en ${nextTentative} essai${nextTentative > 1 ? 's' : ''} ! 🎉`)
+      } else if (nextTentative >= MAX_TENTATIVES) {
         setRoundLost(true)
-        setInfoMessage('Tu as épuisé tes 6 essais...')
+        setInfoMessage('Tu as épuisé tes 6 essais... En attente des autres joueurs.')
+      } else {
+        setInfoMessage('')
       }
 
       setInput('')
     } catch (err: any) {
-      if (err.response?.status === 403) {
-        setInfoMessage(err.response.data || 'Action interdite')
+      const errorMsg = err.response?.data
+      if (typeof errorMsg === 'string') {
+        setInfoMessage(errorMsg)
       } else {
-        console.error('Erreur tentative:', err)
-        setInfoMessage('Erreur lors de la tentative')
+        setInfoMessage('Erreur lors de la tentative.')
       }
     }
   }
 
-  // Envoyer un message chat
+  // ─────────────── Chat ───────────────
   async function handleChat(e: React.FormEvent) {
     e.preventDefault()
-    if (!chatInput) return
+    if (!chatInput.trim()) return
     try {
-      await messageService.sendMessage(roomId, userId, chatInput)
+      await messageService.sendMessage(roomId, userId, chatInput.trim())
       setChatInput('')
     } catch (err) {
       console.error('Erreur chat:', err)
     }
   }
 
-  // Quitter la salle
+  // ─────────────── Quitter la salle ───────────────
   async function handleLeave() {
     try {
       if (roomCode) {
         await roomService.leaveRoom(roomCode, userId)
       }
-      navigate('/')
     } catch (err) {
-      console.error('Erreur leave:', err)
-      navigate('/')
+      // Ignorer les erreurs (salle déjà supprimée, etc.)
     }
+    navigate('/')
   }
 
   // Scroll auto du chat
@@ -328,12 +371,18 @@ export default function GamePage() {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [chatMessages])
 
+  // ─────────────── RENDER ───────────────
   return (
     <div style={styles.page}>
 
       <div style={styles.gameCol}>
         <div style={styles.gameHeader}>
-          <h2 style={styles.gameTitle}>Partie #{id} — Round {numeroRound}</h2>
+          <h2 style={styles.gameTitle}>
+            {gameStarted
+              ? `Round ${numeroRound} / ${nombreRoundsTotal}`
+              : `Salle — ${roomCode || '...'}`
+            }
+          </h2>
           <button style={styles.leaveBtn} onClick={handleLeave}>
             Quitter
           </button>
@@ -344,37 +393,60 @@ export default function GamePage() {
           <p style={styles.info}>{infoMessage}</p>
         )}
 
-        {/* Bouton démarrer la partie */}
-        {!gameStarted && (
+        {/* Écran pré-partie : bouton lancer + code salle */}
+        {!gameStarted && !gameFinished && (
           <div style={{ marginBottom: '1rem' }}>
-            <label>Nombre de rounds : </label>
-            <select
-              value={nombreRoundsTotal}
-              onChange={(e) => setNombreRoundsTotal(Number(e.target.value))}
-              style={{ marginRight: '0.5rem' }}
-            >
-              <option value={1}>1</option>
-              <option value={3}>3</option>
-              <option value={5}>5</option>
-            </select>
+            <p style={styles.hint}>
+              Code de la salle : <strong>{roomCode}</strong> — Partage ce code pour inviter des joueurs !
+            </p>
+            <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', marginBottom: '0.5rem' }}>
+              <label>Nombre de rounds :</label>
+              <select
+                value={nombreRoundsTotal}
+                onChange={(e) => setNombreRoundsTotal(Number(e.target.value))}
+              >
+                <option value={1}>1</option>
+                <option value={3}>3</option>
+                <option value={5}>5</option>
+              </select>
+            </div>
             <button style={styles.startBtn} onClick={handleStartGame}>
               🚀 Lancer la partie
             </button>
-            <p style={styles.hint}>En attente du lancement... Code de la salle : <strong>{roomCode}</strong></p>
+          </div>
+        )}
+
+        {/* Écran fin de partie */}
+        {gameFinished && (
+          <div style={{ textAlign: 'center', marginTop: '2rem' }}>
+            <p style={{ fontSize: '1.2rem' }}>La partie est terminée !</p>
+            <button style={styles.startBtn} onClick={() => {
+              setGameFinished(false)
+              setGameStarted(false)
+              setRoundWon(false)
+              setRoundLost(false)
+              setTentativeNum(0)
+              setGrid([])
+              setOpponents([])
+              setInfoMessage('Prêt pour une nouvelle partie !')
+            }}>
+              🔄 Nouvelle partie
+            </button>
           </div>
         )}
 
         {/* Grille Tusmo */}
-        {gameStarted && (
+        {gameStarted && !gameFinished && (
           <>
             <p style={styles.hint}>
-              Tentative {Math.min(tentativeNum + 1, MAX_TENTATIVES)} / {MAX_TENTATIVES} — Mot de {longueurMot} lettres commençant par <strong>{premiereLettre}</strong>
+              Tentative {Math.min(tentativeNum + 1, MAX_TENTATIVES)} / {MAX_TENTATIVES}
+              {' — '}Mot de <strong>{longueurMot}</strong> lettres commençant par <strong>{premiereLettre}</strong>
             </p>
 
             <div style={styles.grid}>
-              {grid.map((row, rowIdx) => (
+              {grid.map((row: Cell[], rowIdx: number) => (
                 <div key={rowIdx} style={styles.row}>
-                  {row.map((cell, colIdx) => (
+                  {row.map((cell: Cell, colIdx: number) => (
                     <div
                       key={colIdx}
                       style={{
@@ -391,8 +463,8 @@ export default function GamePage() {
               ))}
             </div>
 
-            {/* Input de tentative */}
-            {!roundWon && !roundLost && !gameFinished && (
+            {/* Input de tentative — masqué si le joueur a fini */}
+            {!roundWon && !roundLost && (
               <form onSubmit={handleGuess} style={styles.inputRow}>
                 <input
                   style={styles.guessInput}
@@ -415,7 +487,7 @@ export default function GamePage() {
         {opponents.length > 0 && (
           <div style={styles.opponents}>
             <h4>Adversaires</h4>
-            {opponents.map(op => (
+            {opponents.map((op: OpponentInfo) => (
               <div key={op.username} style={styles.opponentRow}>
                 <span>{op.username}</span>
                 <span style={{ color: op.aGagne ? '#6aaa64' : '#787c7e' }}>
@@ -432,7 +504,7 @@ export default function GamePage() {
         <h3 style={styles.chatTitle}>Chat</h3>
 
         <div style={styles.chatMessages}>
-          {chatMessages.map((msg) => (
+          {chatMessages.map((msg: ChatMessage) => (
             <div key={msg.id} style={styles.chatMsg}>
               <span style={{
                 ...styles.chatAuthor,
