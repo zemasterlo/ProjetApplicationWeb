@@ -1,7 +1,9 @@
 import { Client, IMessage } from '@stomp/stompjs';
-import SockJS from 'sockjs-client';
+// @ts-ignore
+import SockJS from 'sockjs-client/dist/sockjs';
 
-const WS_URL = import.meta.env.VITE_WS_URL || 'http://localhost:8080/tusmo-0.0.1-SNAPSHOT/ws';
+// @ts-ignore
+const WS_URL = (import.meta as any).env?.VITE_WS_URL || 'http://localhost:8080/tusmo-0.0.1-SNAPSHOT/ws';
 
 class WebSocketService {
   private client: Client | null = null;
