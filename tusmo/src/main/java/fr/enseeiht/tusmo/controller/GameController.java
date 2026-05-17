@@ -23,6 +23,8 @@ public class GameController {
             return ResponseEntity.ok(gameService.startGame(roomId, nombreRounds));
         } catch (IllegalStateException e) {
             return ResponseEntity.badRequest().body(e.getMessage());
+        } catch (RuntimeException e) {
+            return ResponseEntity.status(500).body("Erreur serveur: " + e.getMessage());
         }
     }
 
