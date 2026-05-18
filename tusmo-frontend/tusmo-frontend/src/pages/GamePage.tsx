@@ -183,7 +183,15 @@ export function GamePage() {
   }, [id, user])
 
   // ─── WebSocket ──────────────────────────────────────────────
+  // On utilise un ref pour éviter que le WS se reconnecte à chaque
+  // changement de state (ce qui causait la perte des events de round).
+  const wsStateRef = useRef({ username, nombreRoundsTotal, gameId })
+  useEffect(() => {
+    wsStateRef.current = { username, nombreRoundsTotal, gameId }
+  })
+
   const handleWsMessage = useCallback((msg: any) => {
+    const { username, nombreRoundsTotal, gameId } = wsStateRef.current
     switch (msg.type) {
       case 'GAME_STARTED':
         setGameStarted(true)
@@ -229,6 +237,7 @@ export function GamePage() {
         setRoundWon(false)
         setRoundLost(false)
         setTentativeNum(0)
+        setInput('')          // ← Vider l'input du round précédent
         setOpponents([])
         setInfoMessage(`Round ${msg.data.numeroRound} / ${nombreRoundsTotal} — À vous ! 🎯`)
         break
@@ -251,7 +260,7 @@ export function GamePage() {
         }])
         break
     }
-  }, [username, nombreRoundsTotal, gameId])
+  }, []) // ← dépendances vides : on lit les valeurs fraîches via wsStateRef
 
   // Connect WS when roomCode is known
   useEffect(() => {
