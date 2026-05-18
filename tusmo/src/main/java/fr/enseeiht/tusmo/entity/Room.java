@@ -3,6 +3,8 @@ package fr.enseeiht.tusmo.entity;
 import jakarta.persistence.*;
 import lombok.*;
 import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonProperty;
+
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.ArrayList;
@@ -31,18 +33,18 @@ public class Room {
     
     private int maxJoueurs;
 
-    @ManyToOne(fetch = FetchType.LAZY)
+    @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "owner_id")
     @ToString.Exclude
-    @JsonIgnore
     private User owner;
 
-    @ManyToMany
+    @ManyToMany(fetch = FetchType.EAGER)
     @JoinTable(
         name = "room_players",
         joinColumns = @JoinColumn(name = "room_id"),
         inverseJoinColumns = @JoinColumn(name = "user_id")
     )
+    @JsonProperty("joueurs")
     @Builder.Default
     private List<User> players = new ArrayList<>();
 }

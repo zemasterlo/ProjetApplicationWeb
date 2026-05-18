@@ -48,6 +48,7 @@ public class RoomService {
         return roomRepository.save(room);
     }
 
+    @Transactional
     public List<Room> getWaitingRooms() {
         return roomRepository.findByStatut(RoomStatus.WAITING);
     }
@@ -56,6 +57,7 @@ public class RoomService {
         return roomRepository.findByCode(code.toUpperCase());
     }
 
+    @Transactional
     public Optional<Room> getRoomById(Long id) {
         return roomRepository.findById(id);
     }

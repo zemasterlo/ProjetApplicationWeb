@@ -164,6 +164,9 @@ export function GamePage() {
           setGrid(buildGridFromGuesses(state.longueurMot, state.premiereLettre, guesses))
           setTentativeNum(guesses.length)
 
+          const roundIdRef = useRef<number | null>(null)
+          useEffect(() => { roundIdRef.current = roundId }, [roundId])
+
           const won  = guesses.some(g => g.estCorrect)
           const lost = !won && guesses.length >= MAX_TENTATIVES
           if (won)  { setRoundWon(true);  setInfoMessage('Tu as déjà trouvé ce mot ! 🎉') }

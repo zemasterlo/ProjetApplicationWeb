@@ -3766,3 +3766,183 @@ DELETE * FROM game [42001-240]
 org.h2.jdbc.JdbcSQLSyntaxErrorException: Table "GAME" non trouvée
 Table "GAME" not found; SQL statement:
 DELETE FROM game [42102-240]
+2026-05-18 00:34:01.440474+02:00 jdbc[25]: null
+org.h2.message.DbException: La connexion n'a pas été fermée et a été récupérée par le ramasse miette.
+The connection was not closed by the application and is garbage collected [90018-240]
+	at org.h2.message.DbException.get(DbException.java:223)
+	at org.h2.message.DbException.get(DbException.java:199)
+	at org.h2.message.DbException.get(DbException.java:188)
+	at org.h2.jdbc.JdbcConnection.closeOld(JdbcConnection.java:217)
+	at org.h2.jdbc.JdbcConnection.<init>(JdbcConnection.java:134)
+	at org.h2.Driver.connect(Driver.java:59)
+	at com.zaxxer.hikari.util.DriverDataSource.getConnection(DriverDataSource.java:144)
+	at com.zaxxer.hikari.pool.PoolBase.newConnection(PoolBase.java:373)
+	at com.zaxxer.hikari.pool.PoolBase.newPoolEntry(PoolBase.java:210)
+	at com.zaxxer.hikari.pool.HikariPool.createPoolEntry(HikariPool.java:488)
+	at com.zaxxer.hikari.pool.HikariPool$PoolEntryCreator.call(HikariPool.java:752)
+	at com.zaxxer.hikari.pool.HikariPool$PoolEntryCreator.call(HikariPool.java:731)
+	at java.base/java.util.concurrent.FutureTask.run(FutureTask.java:264)
+	at java.base/java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1136)
+	at java.base/java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:635)
+	at java.base/java.lang.Thread.run(Thread.java:833)
+Caused by: org.h2.jdbc.JdbcSQLNonTransientConnectionException: La connexion n'a pas été fermée et a été récupérée par le ramasse miette.
+The connection was not closed by the application and is garbage collected [90018-240]
+	at org.h2.message.DbException.getJdbcSQLException(DbException.java:690)
+	at org.h2.message.DbException.getJdbcSQLException(DbException.java:489)
+	... 16 more
+2026-05-18 00:59:47.829164+02:00 jdbc[47]: java.lang.Exception: Open Stack Trace
+	at org.h2.util.CloseWatcher.register(CloseWatcher.java:85)
+	at org.h2.jdbc.JdbcConnection.<init>(JdbcConnection.java:135)
+	at org.h2.util.JdbcUtils.getConnection(JdbcUtils.java:291)
+	at org.h2.server.web.WebServer.getConnection(WebServer.java:811)
+	at org.h2.server.web.WebApp.login(WebApp.java:1038)
+	at org.h2.server.web.WebApp.process(WebApp.java:226)
+	at org.h2.server.web.WebApp.processRequest(WebApp.java:176)
+	at org.h2.server.web.JakartaWebServlet.doGet(JakartaWebServlet.java:129)
+	at org.h2.server.web.JakartaWebServlet.doPost(JakartaWebServlet.java:166)
+	at jakarta.servlet.http.HttpServlet.service(HttpServlet.java:645)
+	at jakarta.servlet.http.HttpServlet.service(HttpServlet.java:716)
+	at org.apache.catalina.core.ApplicationFilterChain.doFilter(ApplicationFilterChain.java:130)
+	at org.apache.tomcat.websocket.server.WsFilter.doFilter(WsFilter.java:51)
+	at org.apache.catalina.core.ApplicationFilterChain.doFilter(ApplicationFilterChain.java:109)
+	at org.springframework.web.filter.CorsFilter.doFilterInternal(CorsFilter.java:91)
+	at org.springframework.web.filter.OncePerRequestFilter.doFilter(OncePerRequestFilter.java:116)
+	at org.apache.catalina.core.ApplicationFilterChain.doFilter(ApplicationFilterChain.java:109)
+	at org.springframework.web.filter.RequestContextFilter.doFilterInternal(RequestContextFilter.java:100)
+	at org.springframework.web.filter.OncePerRequestFilter.doFilter(OncePerRequestFilter.java:116)
+	at org.apache.catalina.core.ApplicationFilterChain.doFilter(ApplicationFilterChain.java:109)
+	at org.springframework.web.filter.FormContentFilter.doFilterInternal(FormContentFilter.java:93)
+	at org.springframework.web.filter.OncePerRequestFilter.doFilter(OncePerRequestFilter.java:116)
+	at org.apache.catalina.core.ApplicationFilterChain.doFilter(ApplicationFilterChain.java:109)
+	at org.springframework.boot.web.servlet.support.ErrorPageFilter.doFilter(ErrorPageFilter.java:125)
+	at org.springframework.boot.web.servlet.support.ErrorPageFilter$1.doFilterInternal(ErrorPageFilter.java:100)
+	at org.springframework.web.filter.OncePerRequestFilter.doFilter(OncePerRequestFilter.java:116)
+	at org.springframework.boot.web.servlet.support.ErrorPageFilter.doFilter(ErrorPageFilter.java:118)
+	at org.apache.catalina.core.ApplicationFilterChain.doFilter(ApplicationFilterChain.java:109)
+	at org.springframework.web.filter.CharacterEncodingFilter.doFilterInternal(CharacterEncodingFilter.java:199)
+	at org.springframework.web.filter.OncePerRequestFilter.doFilter(OncePerRequestFilter.java:116)
+	at org.apache.catalina.core.ApplicationFilterChain.doFilter(ApplicationFilterChain.java:109)
+	at org.apache.catalina.core.StandardWrapperValve.invoke(StandardWrapperValve.java:167)
+	at org.apache.catalina.core.StandardContextValve.invoke(StandardContextValve.java:79)
+	at org.apache.catalina.authenticator.AuthenticatorBase.invoke(AuthenticatorBase.java:483)
+	at org.apache.catalina.core.StandardHostValve.invoke(StandardHostValve.java:115)
+	at org.apache.catalina.valves.ErrorReportValve.invoke(ErrorReportValve.java:93)
+	at org.apache.catalina.valves.AbstractAccessLogValve.invoke(AbstractAccessLogValve.java:663)
+	at org.apache.catalina.core.StandardEngineValve.invoke(StandardEngineValve.java:74)
+	at org.apache.catalina.connector.CoyoteAdapter.service(CoyoteAdapter.java:342)
+	at org.apache.coyote.http11.Http11Processor.service(Http11Processor.java:395)
+	at org.apache.coyote.AbstractProcessorLight.process(AbstractProcessorLight.java:63)
+	at org.apache.coyote.AbstractProtocol$ConnectionHandler.process(AbstractProtocol.java:905)
+	at org.apache.tomcat.util.net.NioEndpoint$SocketProcessor.doRun(NioEndpoint.java:1746)
+	at org.apache.tomcat.util.net.SocketProcessorBase.run(SocketProcessorBase.java:52)
+	at org.apache.tomcat.util.threads.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1148)
+	at org.apache.tomcat.util.threads.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:636)
+	at org.apache.tomcat.util.threads.TaskThread$WrappingRunnable.run(TaskThread.java:63)
+	at java.base/java.lang.Thread.run(Thread.java:833)
+
+org.h2.message.DbException: La connexion n'a pas été fermée et a été récupérée par le ramasse miette.
+The connection was not closed by the application and is garbage collected [90018-240]
+	at org.h2.message.DbException.get(DbException.java:223)
+	at org.h2.message.DbException.get(DbException.java:199)
+	at org.h2.message.DbException.get(DbException.java:188)
+	at org.h2.jdbc.JdbcConnection.closeOld(JdbcConnection.java:217)
+	at org.h2.jdbc.JdbcConnection.<init>(JdbcConnection.java:134)
+	at org.h2.Driver.connect(Driver.java:59)
+	at com.zaxxer.hikari.util.DriverDataSource.getConnection(DriverDataSource.java:144)
+	at com.zaxxer.hikari.pool.PoolBase.newConnection(PoolBase.java:373)
+	at com.zaxxer.hikari.pool.PoolBase.newPoolEntry(PoolBase.java:210)
+	at com.zaxxer.hikari.pool.HikariPool.createPoolEntry(HikariPool.java:488)
+	at com.zaxxer.hikari.pool.HikariPool$PoolEntryCreator.call(HikariPool.java:752)
+	at com.zaxxer.hikari.pool.HikariPool$PoolEntryCreator.call(HikariPool.java:731)
+	at java.base/java.util.concurrent.FutureTask.run(FutureTask.java:264)
+	at java.base/java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1136)
+	at java.base/java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:635)
+	at java.base/java.lang.Thread.run(Thread.java:833)
+Caused by: org.h2.jdbc.JdbcSQLNonTransientConnectionException: La connexion n'a pas été fermée et a été récupérée par le ramasse miette.
+The connection was not closed by the application and is garbage collected [90018-240]
+	at org.h2.message.DbException.getJdbcSQLException(DbException.java:690)
+	at org.h2.message.DbException.getJdbcSQLException(DbException.java:489)
+	... 16 more
+2026-05-18 01:10:45.733914+02:00 jdbc[3]: exception
+org.h2.jdbc.JdbcSQLSyntaxErrorException: Table "WORDS" not found (this database is empty); SQL statement:
+insert into words (difficulte,longueur,mot,id) values (?,?,?,default) [42104-240]
+2026-05-18 01:12:51.102863+02:00 jdbc[3]: exception
+org.h2.jdbc.JdbcSQLSyntaxErrorException: Table "WORDS" non trouvée
+Table "WORDS" not found; SQL statement:
+insert into words (difficulte,longueur,mot,id) values (?,?,?,default) [42102-240]
+2026-05-18 01:14:02.478091+02:00 database: flush
+org.h2.message.DbException: Erreur générale: "org.h2.mvstore.MVStoreException: Could not sync file /home/lds5160/Projet2A/ProjetAppliWeb/ProjetApplicationWeb/tusmo_db_data.mv.db [2.4.240/2]"
+General error: "org.h2.mvstore.MVStoreException: Could not sync file /home/lds5160/Projet2A/ProjetAppliWeb/ProjetApplicationWeb/tusmo_db_data.mv.db [2.4.240/2]" [50000-240]
+	at org.h2.message.DbException.get(DbException.java:212)
+	at org.h2.message.DbException.convert(DbException.java:407)
+	at org.h2.mvstore.db.Store.lambda$new$0(Store.java:122)
+	at org.h2.mvstore.MVStore.handleException(MVStore.java:1675)
+	at org.h2.mvstore.MVStore.panic(MVStore.java:502)
+	at org.h2.mvstore.FileStore.storeBuffer(FileStore.java:1532)
+	at org.h2.mvstore.FileStore.lambda$serializeAndStore$3(FileStore.java:1437)
+	at java.base/java.util.concurrent.Executors$RunnableAdapter.call(Executors.java:539)
+	at java.base/java.util.concurrent.FutureTask.run(FutureTask.java:264)
+	at java.base/java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1136)
+	at java.base/java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:635)
+	at java.base/java.lang.Thread.run(Thread.java:833)
+Caused by: org.h2.jdbc.JdbcSQLNonTransientException: Erreur générale: "org.h2.mvstore.MVStoreException: Could not sync file /home/lds5160/Projet2A/ProjetAppliWeb/ProjetApplicationWeb/tusmo_db_data.mv.db [2.4.240/2]"
+General error: "org.h2.mvstore.MVStoreException: Could not sync file /home/lds5160/Projet2A/ProjetAppliWeb/ProjetApplicationWeb/tusmo_db_data.mv.db [2.4.240/2]" [50000-240]
+	at org.h2.message.DbException.getJdbcSQLException(DbException.java:566)
+	at org.h2.message.DbException.getJdbcSQLException(DbException.java:489)
+	... 12 more
+Caused by: org.h2.mvstore.MVStoreException: Could not sync file /home/lds5160/Projet2A/ProjetAppliWeb/ProjetApplicationWeb/tusmo_db_data.mv.db [2.4.240/2]
+	at org.h2.mvstore.DataUtils.newMVStoreException(DataUtils.java:996)
+	at org.h2.mvstore.SingleFileStore.sync(SingleFileStore.java:181)
+	at org.h2.mvstore.RandomAccessStore.shrinkIfPossible(RandomAccessStore.java:699)
+	at org.h2.mvstore.RandomAccessStore.shrinkStoreIfPossible(RandomAccessStore.java:680)
+	at org.h2.mvstore.RandomAccessStore.writeChunk(RandomAccessStore.java:377)
+	at org.h2.mvstore.RandomAccessStore.writeChunk(RandomAccessStore.java:28)
+	at org.h2.mvstore.FileStore.storeBuffer(FileStore.java:1529)
+	... 6 more
+Caused by: java.io.IOException: Erreur d'entrée/sortie
+	at java.base/sun.nio.ch.FileDispatcherImpl.force0(Native Method)
+	at java.base/sun.nio.ch.FileDispatcherImpl.force(FileDispatcherImpl.java:82)
+	at java.base/sun.nio.ch.FileChannelImpl.force(FileChannelImpl.java:468)
+	at org.h2.mvstore.SingleFileStore.sync(SingleFileStore.java:179)
+	... 11 more
+2026-05-18 01:14:02.534010+02:00 database: close
+org.h2.message.DbException: IO Exception: "Closing"
+IO Exception: "Closing" [90028-240]
+	at org.h2.message.DbException.get(DbException.java:212)
+	at org.h2.mvstore.db.Store.close(Store.java:352)
+	at org.h2.engine.Database.closeOpenFilesAndUnlock(Database.java:1314)
+	at org.h2.engine.Database.closeImpl(Database.java:1276)
+	at org.h2.engine.Database.close(Database.java:1195)
+	at org.h2.engine.Database.close(Database.java:1172)
+	at org.h2.engine.Database.removeSession(Database.java:1099)
+	at org.h2.engine.SessionLocal.close(SessionLocal.java:930)
+	at org.h2.engine.SessionRemote.close(SessionRemote.java:590)
+	at org.h2.jdbc.JdbcConnection.close(JdbcConnection.java:390)
+	at com.zaxxer.hikari.pool.PoolBase.quietlyCloseConnection(PoolBase.java:147)
+	at com.zaxxer.hikari.pool.HikariPool.lambda$closeConnection$1(HikariPool.java:462)
+	at java.base/java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1136)
+	at java.base/java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:635)
+	at java.base/java.lang.Thread.run(Thread.java:833)
+Caused by: org.h2.jdbc.JdbcSQLNonTransientException: IO Exception: "Closing"
+IO Exception: "Closing" [90028-240]
+	at org.h2.message.DbException.getJdbcSQLException(DbException.java:566)
+	at org.h2.message.DbException.getJdbcSQLException(DbException.java:489)
+	... 15 more
+Caused by: org.h2.mvstore.MVStoreException: Could not sync file /home/lds5160/Projet2A/ProjetAppliWeb/ProjetApplicationWeb/tusmo_db_data.mv.db [2.4.240/2]
+	at org.h2.mvstore.DataUtils.newMVStoreException(DataUtils.java:996)
+	at org.h2.mvstore.SingleFileStore.sync(SingleFileStore.java:181)
+	at org.h2.mvstore.RandomAccessStore.shrinkIfPossible(RandomAccessStore.java:699)
+	at org.h2.mvstore.RandomAccessStore.shrinkStoreIfPossible(RandomAccessStore.java:680)
+	at org.h2.mvstore.RandomAccessStore.writeChunk(RandomAccessStore.java:377)
+	at org.h2.mvstore.RandomAccessStore.writeChunk(RandomAccessStore.java:28)
+	at org.h2.mvstore.FileStore.storeBuffer(FileStore.java:1529)
+	at org.h2.mvstore.FileStore.lambda$serializeAndStore$3(FileStore.java:1437)
+	at java.base/java.util.concurrent.Executors$RunnableAdapter.call(Executors.java:539)
+	at java.base/java.util.concurrent.FutureTask.run(FutureTask.java:264)
+	... 3 more
+Caused by: java.io.IOException: Erreur d'entrée/sortie
+	at java.base/sun.nio.ch.FileDispatcherImpl.force0(Native Method)
+	at java.base/sun.nio.ch.FileDispatcherImpl.force(FileDispatcherImpl.java:82)
+	at java.base/sun.nio.ch.FileChannelImpl.force(FileChannelImpl.java:468)
+	at org.h2.mvstore.SingleFileStore.sync(SingleFileStore.java:179)
+	... 11 more
