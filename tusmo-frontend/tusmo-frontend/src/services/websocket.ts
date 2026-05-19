@@ -15,6 +15,7 @@ export type WsMessageType =
   | 'NEW_ROUND'
   | 'GAME_ENDED'
   | 'NEW_MESSAGE'
+  | 'INVITATION_RECEIVED'
 
 export interface WsMessage {
   type: WsMessageType
@@ -25,6 +26,7 @@ type Handler = (msg: WsMessage) => void
 
 class WebSocketService {
   private client: Client | null = null
+  private userClient: Client | null = null
   private handlers: Handler[] = []
 
   connect(roomCode: string, onMessage: Handler) {
@@ -50,6 +52,37 @@ class WebSocketService {
     })
 
     this.client.activate()
+  }
+
+  /**
+   * Connexion au topic personnel de l'utilisateur pour les invitations.
+   * Appeler une fois après la connexion, dans AuthContext ou App.
+   */
+  connectUser(userId: number, onMessage: Handler) {
+    if (this.userClient?.connected) return
+
+    this.userClient = new Client({
+      webSocketFactory: () => new SockJS('/ws'),
+      reconnectDelay: 5000,
+      onConnect: () => {
+        this.userClient!.subscribe(`/topic/user/${userId}`, (frame: IMessage) => {
+          try {
+            const msg: WsMessage = JSON.parse(frame.body)
+            onMessage(msg)
+          } catch (e) {
+            console.error('WS user parse error:', e)
+          }
+        })
+      },
+    })
+    this.userClient.activate()
+  }
+
+  disconnectUser() {
+    if (this.userClient) {
+      this.userClient.deactivate()
+      this.userClient = null
+    }
   }
 
   disconnect() {

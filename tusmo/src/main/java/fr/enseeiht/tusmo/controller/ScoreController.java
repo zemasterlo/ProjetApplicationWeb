@@ -20,9 +20,10 @@ public class ScoreController {
             @RequestParam Long userId,
             @RequestParam Long gameId,
             @RequestParam int tempsTotalSecondes,
-            @RequestParam int nombreEssais) {
+            @RequestParam int nombreEssais,
+            @RequestParam boolean aGagne) {
         try {
-            Score score = scoreService.recordScore(userId, gameId, tempsTotalSecondes, nombreEssais);
+            Score score = scoreService.recordScore(userId, gameId, tempsTotalSecondes, nombreEssais, aGagne);
             return ResponseEntity.ok(score);
         } catch (RuntimeException e) {
             return ResponseEntity.badRequest().build();

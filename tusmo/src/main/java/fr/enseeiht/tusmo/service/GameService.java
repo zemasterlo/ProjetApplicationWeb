@@ -3,6 +3,7 @@ package fr.enseeiht.tusmo.service;
 import fr.enseeiht.tusmo.dto.RoundHintDTO;
 import fr.enseeiht.tusmo.entity.*;
 import fr.enseeiht.tusmo.repository.*;
+import fr.enseeiht.tusmo.service.ScoreService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -40,6 +41,9 @@ public class GameService {
     @Autowired
     private ScoreRepository scoreRepository;
 
+    @Autowired
+    private ScoreService scoreService;
+
     @Transactional
     public Game startGame(Long roomId, int nombreRounds) {
         Room room = roomRepository.findById(roomId)
@@ -71,7 +75,7 @@ public class GameService {
         // Notifier tous les joueurs via WebSocket
         String mot = firstRound.getWord().getMot().toUpperCase();
         RoundHintDTO hint = new RoundHintDTO(firstRound.getId(), 1, mot.charAt(0), mot.length());
-        notificationService.notifyGameStarted(room.getCode(), game.getId(), hint);
+        notificationService.notifyGameStarted(room.getCode(), game.getId(), hint, nombreRounds);
 
         return game;
     }
@@ -124,9 +128,29 @@ public class GameService {
             }
         }
 
-        // Tous les joueurs ont fini ce round
+        // Tous les joueurs ont fini ce round → enregistrer les scores
         round.setDateFin(LocalDateTime.now());
         roundRepository.save(round);
+
+        // ─── Enregistrement des scores pour ce round ──────────────────────────
+        long dureeSecondes = 0;
+        if (round.getDateDebut() != null && round.getDateFin() != null) {
+            dureeSecondes = java.time.Duration.between(round.getDateDebut(), round.getDateFin()).getSeconds();
+        }
+        for (User player : players) {
+            List<Guess> playerGuesses = guessRepository.findByRoundIdAndUserId(roundId, player.getId());
+            boolean aGagne = playerGuesses.stream().anyMatch(Guess::isEstCorrect);
+            int essais = playerGuesses.size();
+            // On enregistre uniquement si le joueur a trouvé ou épuisé ses essais
+            if (aGagne || essais >= MAX_TENTATIVES) {
+                try {
+                    scoreService.recordScore(player.getId(), game.getId(), (int) dureeSecondes, essais, aGagne);
+                } catch (Exception ignored) {
+                    // Ne pas bloquer la progression si l'enregistrement échoue
+                }
+            }
+        }
+        // ─────────────────────────────────────────────────────────────────────
 
         String motCorrect = round.getWord().getMot().toUpperCase();
         notificationService.notifyRoundEnded(room.getCode(), round.getNumeroRound(), motCorrect);
@@ -157,7 +181,7 @@ public class GameService {
         gameRepository.save(game);
 
         Room room = game.getRoom();
-        room.setStatut(RoomStatus.WAITING);
+        room.setStatut(RoomStatus.CLOSED);
         roomRepository.save(room);
 
         // Construire le classement et notifier
@@ -175,8 +199,33 @@ public class GameService {
         notificationService.notifyGameEnded(room.getCode(), classement);
     }
 
-    public List<Game> getGamesHistory(Long roomId) {
-        return gameRepository.findByRoomId(roomId);
+    public List<Map<String, Object>> getGamesHistory(Long roomId) {
+        List<Game> games = gameRepository.findByRoomId(roomId);
+        List<Map<String, Object>> history = new ArrayList<>();
+        
+        for (Game game : games) {
+            List<Score> scores = scoreRepository.findByGameIdOrderByPointsDesc(game.getId());
+            List<Map<String, Object>> scoreList = new ArrayList<>();
+            for (Score s : scores) {
+                scoreList.add(Map.of(
+                        "username", s.getUser().getUsername(),
+                        "points", s.getPoints(),
+                        "nombreEssais", s.getNombreEssais(),
+                        "tempsTotal", s.getTempsTotal()
+                ));
+            }
+            
+            history.add(Map.of(
+                    "id", game.getId(),
+                    "dateDebut", game.getDateDebut() != null ? game.getDateDebut() : "",
+                    "dateFin", game.getDateFin() != null ? game.getDateFin() : "",
+                    "statut", game.getStatut(),
+                    "nombreRoundsTotal", game.getNombreRoundsTotal(),
+                    "scores", scoreList
+            ));
+        }
+        
+        return history;
     }
 
     /**

@@ -4,6 +4,9 @@ import fr.enseeiht.tusmo.entity.User;
 import fr.enseeiht.tusmo.entity.UserStatus;
 import fr.enseeiht.tusmo.service.UserService;
 import fr.enseeiht.tusmo.repository.UserRepository;
+
+import java.util.List;
+
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -64,5 +67,26 @@ public class UserController {
     public ResponseEntity<Void> updateStatus(@PathVariable Long id, @RequestParam UserStatus status) {
         userService.updateUserStatus(id, status);
         return ResponseEntity.ok().build();
+    }
+
+    /**
+     * Recherche un utilisateur par son pseudo exact (pour le système d'invitation).
+     * GET /api/users/search?username=alice
+     */
+    @GetMapping("/search")
+    public ResponseEntity<?> searchByUsername(@RequestParam String username) {
+        return userRepository.findByUsername(username)
+                .map(ResponseEntity::ok)
+                .orElse(ResponseEntity.notFound().build());
+    }
+
+    /**
+     * Retourne tous les utilisateurs en ligne (pour l'autocomplétion future).
+     * GET /api/users/online
+     */
+    @GetMapping("/online")
+    public ResponseEntity<List<User>> getOnlineUsers() {
+        return ResponseEntity.ok(
+                userRepository.findByStatut(fr.enseeiht.tusmo.entity.UserStatus.ONLINE));
     }
 }

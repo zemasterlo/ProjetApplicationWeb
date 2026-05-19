@@ -115,8 +115,8 @@ export function LoginPage() {
               {loading
                 ? '...'
                 : mode === 'login'
-                ? '🚀 Se connecter'
-                : '✨ Créer un compte'}
+                  ? '🚀 Se connecter'
+                  : '✨ Créer un compte'}
             </button>
           </form>
         </div>

@@ -1,8 +1,11 @@
 package fr.enseeiht.tusmo.service;
 
+import fr.enseeiht.tusmo.entity.Game;
+import fr.enseeiht.tusmo.entity.GameStatus;
 import fr.enseeiht.tusmo.entity.Room;
 import fr.enseeiht.tusmo.entity.RoomStatus;
 import fr.enseeiht.tusmo.entity.User;
+import fr.enseeiht.tusmo.repository.GameRepository;
 import fr.enseeiht.tusmo.repository.RoomRepository;
 import fr.enseeiht.tusmo.repository.UserRepository;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -22,6 +25,12 @@ public class RoomService {
 
     @Autowired
     private UserRepository userRepository;
+
+    @Autowired
+    private GameRepository gameRepository;
+
+    @Autowired
+    private GameService gameService;
 
     @Autowired
     private NotificationService notificationService;
@@ -78,7 +87,9 @@ public class RoomService {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new RuntimeException("Joueur introuvable."));
 
-        if (!room.getPlayers().contains(user)) {
+        boolean dejaPresent = room.getPlayers().stream()
+        .anyMatch(p -> p.getId().equals(user.getId()));
+        if (!dejaPresent) {
             room.getPlayers().add(user);
             roomRepository.save(room);
             notificationService.notifyPlayerJoined(room.getCode(), user.getUsername());
@@ -102,10 +113,13 @@ public class RoomService {
         // Retirer le joueur de la liste
         room.getPlayers().remove(user);
 
-        // Si plus personne dans la salle → on la supprime
+        // Si plus personne dans la salle → fermer (+ terminer la partie en cours si besoin)
         if (room.getPlayers().isEmpty()) {
             notificationService.notifyPlayerLeft(room.getCode(), user.getUsername());
-            roomRepository.delete(room);
+            gameRepository.findByRoomIdAndStatut(room.getId(), GameStatus.IN_PROGRESS)
+                    .ifPresent(game -> gameService.endGame(game.getId()));
+            room.setStatut(RoomStatus.CLOSED);
+            roomRepository.save(room);
             return room;
         }
 

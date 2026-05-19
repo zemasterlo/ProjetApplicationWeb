@@ -22,7 +22,8 @@ public class WebSocketMessage {
         ROUND_ENDED,
         NEW_ROUND,
         GAME_ENDED,
-        NEW_MESSAGE
+        NEW_MESSAGE,
+        INVITATION_RECEIVED
     }
 
     private EventType type;

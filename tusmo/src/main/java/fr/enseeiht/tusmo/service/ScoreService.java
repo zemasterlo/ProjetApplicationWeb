@@ -27,14 +27,14 @@ public class ScoreService {
 
 
     @Transactional
-    public Score recordScore(Long userId, Long gameId, int tempsTotalSecondes, int nombreEssais) {
+    public Score recordScore(Long userId, Long gameId, int tempsTotalSecondes, int nombreEssais, boolean aGagne) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new RuntimeException("Joueur introuvable"));
         
         Game game = gameRepository.findById(gameId)
                 .orElseThrow(() -> new RuntimeException("Partie introuvable"));
 
-        int pointsGagnes = Math.max(0, 1000 - (nombreEssais * 50) - (tempsTotalSecondes * 2));
+        int pointsGagnes = aGagne ? Math.max(150, 1150 - (nombreEssais * 150)) : 0;
 
         Optional<Score> existingScore = scoreRepository.findByUserIdAndGameId(userId, gameId);
         Score score;

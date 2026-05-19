@@ -1,11 +1,12 @@
 // ============================================================
 // pages/GamePage.tsx — La page de jeu Tusmo
-// CORRECTIONS :
+// CORRECTIONS INTEGREES :
 //  - L'utilisateur tape les lettres APRES la première (qui est pré-remplie)
 //    → frontend préfixe automatiquement avant d'envoyer au backend
 //  - La grille est construite atomiquement depuis les guesses existants
 //    (plus de race condition entre initGrid + setGrid)
 //  - handleWebSocketMessage encapsulé dans useCallback
+//  - Anti-race condition sur les changements de round (via refs)
 // ============================================================
 
 import { useState, useEffect, useRef, useCallback } from 'react'
@@ -106,6 +107,7 @@ export function GamePage() {
   const [numeroRound,       setNumeroRound]        = useState(1)
   const [nombreRoundsTotal, setNombreRoundsTotal]  = useState(3)
   const [roomCode,          setRoomCode]           = useState('')
+  const roomCodeRef = useRef('')
 
   // Grid
   const [grid,        setGrid]        = useState<Cell[][]>([])
@@ -131,8 +133,34 @@ export function GamePage() {
   const [leaderboard,   setLeaderboard]   = useState<Score[]>([])
   const [showLeaderboard, setShowLeaderboard] = useState(false)
 
+  // Classement final (données directement dans l'event GAME_ENDED)
+  const [classement, setClassement] = useState<ClassementEntry[]>([])
+
   // Info banner
   const [infoMessage, setInfoMessage] = useState('')
+
+  // ─── Refs anti-race-condition ────────────────────────────────
+  /**
+   * roundIdRef : miroir ref de l'état roundId.
+   * Mis à jour immédiatement à chaque changement de round (WS ou init),
+   * il permet à handleGuess de détecter — après son await — si le round
+   * a changé pendant l'appel réseau, et d'abandonner l'application du
+   * résultat périmé.
+   */
+  const roundIdRef = useRef<number | null>(null)
+
+  /**
+   * wsRoundIdRef : dernier roundId reçu via WebSocket (NEW_ROUND / GAME_STARTED).
+   * Utilisé dans init() pour ne pas écraser l'état déjà posé par le WS
+   * si getActiveGameState() se résout après un NEW_ROUND.
+   */
+  const wsRoundIdRef = useRef<number | null>(null)
+
+  /** Raccourci : positionne roundId dans l'état ET dans le ref en même temps. */
+  const applyRoundId = (id: number) => {
+    setRoundId(id)
+    roundIdRef.current = id
+  }
 
   // ─── Init ───────────────────────────────────────────────────
   useEffect(() => {
@@ -142,6 +170,7 @@ export function GamePage() {
       try {
         const room = await roomService.getRoom(id!)
         setRoomCode(room.code)
+        roomCodeRef.current = room.code
 
         // Load chat history
         const msgs = await messageService.getRoom(roomId)
@@ -153,25 +182,32 @@ export function GamePage() {
         if (state) {
           setGameStarted(true)
           setGameId(state.gameId)
-          setRoundId(state.roundId)
+          applyRoundId(state.roundId)
           setPremiereLettre(state.premiereLettre)
           setLongueurMot(state.longueurMot)
           setNumeroRound(state.numeroRound)
           setNombreRoundsTotal(state.nombreRoundsTotal)
 
-          const guesses = state.guesses ?? []
-          // ATOMIC: build grid + set tentativeNum in one shot
-          setGrid(buildGridFromGuesses(state.longueurMot, state.premiereLettre, guesses))
-          setTentativeNum(guesses.length)
+          // ── Fix race condition init vs NEW_ROUND ──────────────
+          // Si le WS a déjà reçu un NEW_ROUND pour un round DIFFÉRENT
+          // (c.-à-d. getActiveGameState s'est résolu APRÈS le WS),
+          // on ne réapplique pas les guesses/roundLost/roundWon périmés :
+          // le WS a déjà positionné la grille et les flags correctement.
+          const wsRoundId = wsRoundIdRef.current
+          const apiIsStale = wsRoundId !== null && wsRoundId !== state.roundId
 
-          const roundIdRef = useRef<number | null>(null)
-          useEffect(() => { roundIdRef.current = roundId }, [roundId])
+          if (!apiIsStale) {
+            const guesses = state.guesses ?? []
+            // ATOMIC: build grid + set tentativeNum in one shot
+            setGrid(buildGridFromGuesses(state.longueurMot, state.premiereLettre, guesses))
+            setTentativeNum(guesses.length)
 
-          const won  = guesses.some(g => g.estCorrect)
-          const lost = !won && guesses.length >= MAX_TENTATIVES
-          if (won)  { setRoundWon(true);  setInfoMessage('Tu as déjà trouvé ce mot ! 🎉') }
-          if (lost) { setRoundLost(true); setInfoMessage('Tu avais épuisé tes essais.') }
-          if (!won && !lost) setInfoMessage('Partie reprise, bonne chance !')
+            const won  = guesses.some(g => g.estCorrect)
+            const lost = !won && guesses.length >= MAX_TENTATIVES
+            if (won)  { setRoundWon(true);  setInfoMessage('Tu as déjà trouvé ce mot ! 🎉') }
+            if (lost) { setRoundLost(true); setInfoMessage('Tu avais épuisé tes essais.') }
+            if (!won && !lost) setInfoMessage('Partie reprise, bonne chance !')
+          }
         }
       } catch (err) {
         console.error('Init error:', err)
@@ -194,8 +230,10 @@ export function GamePage() {
     const { username, nombreRoundsTotal, gameId } = wsStateRef.current
     switch (msg.type) {
       case 'GAME_STARTED':
+        wsRoundIdRef.current = msg.data.roundId  // ← fix race condition init
         setGameStarted(true)
-        setRoundId(msg.data.roundId)
+        if (msg.data.gameId) setGameId(msg.data.gameId) // ← capture gameId depuis le WS
+        applyRoundId(msg.data.roundId)
         setPremiereLettre(msg.data.premiereLettre)
         setLongueurMot(msg.data.longueurMot)
         setNumeroRound(msg.data.numeroRound)
@@ -229,7 +267,8 @@ export function GamePage() {
         break
 
       case 'NEW_ROUND':
-        setRoundId(msg.data.roundId)
+        wsRoundIdRef.current = msg.data.roundId  // ← fix race condition init
+        applyRoundId(msg.data.roundId)
         setPremiereLettre(msg.data.premiereLettre)
         setLongueurMot(msg.data.longueurMot)
         setNumeroRound(msg.data.numeroRound)
@@ -245,9 +284,19 @@ export function GamePage() {
       case 'GAME_ENDED':
         setGameFinished(true)
         setInfoMessage('Partie terminée !')
-        if (gameId) {
-          scoreService.getLeaderboard(gameId).then(setLeaderboard).catch(() => {})
-          setShowLeaderboard(true)
+        // Le classement est directement dans le message WS (username, points, nombreEssais)
+        if (msg.data.classement && Array.isArray(msg.data.classement)) {
+          setClassement(msg.data.classement)
+        }
+        setShowLeaderboard(true)
+        // Fallback : si le classement WS est vide, tenter l'API avec gameId
+        if (!msg.data.classement || msg.data.classement.length === 0) {
+          const { gameId } = wsStateRef.current
+          if (gameId) {
+            scoreService.getLeaderboard(gameId).then(scores => {
+              setLeaderboard(scores)
+            }).catch(() => {})
+          }
         }
         break
 
@@ -290,25 +339,36 @@ export function GamePage() {
       return
     }
 
+    // ── Fix stale-closure : capture le roundId AVANT l'await ──
+    const capturedRoundId = roundId
+
     try {
       const result = await guessService.submit(roundId, user.id, motComplet)
 
+      // Vérification post-await : le round a-t-il changé pendant l'appel ?
+      if (roundIdRef.current !== capturedRoundId) {
+        return
+      }
+
       const cells = parseResultat(result.motPropose, result.resultatLettres)
-      const row   = tentativeNum
+
+      // numeroEssai est 1-based côté serveur.
+      const essai = result.numeroEssai ?? (tentativeNum + 1)
+      const serverRow = essai - 1   // 0-based pour la grille
 
       setGrid(prev => {
         const next = [...prev]
-        next[row] = cells
+        next[serverRow] = cells
         return next
       })
-      setTentativeNum(prev => prev + 1)
+      setTentativeNum(essai)
       setInput('')
 
       if (result.estCorrect) {
         setRoundWon(true)
         setInfoMessage('Bravo ! Tu as trouvé le mot ! 🎉')
         show('Bravo ! 🎉', 'success')
-      } else if (tentativeNum + 1 >= MAX_TENTATIVES) {
+      } else if (essai >= MAX_TENTATIVES) {
         setRoundLost(true)
         setInfoMessage('Tu as épuisé tes essais...')
         show('Plus d\'essais...', 'error')
@@ -341,6 +401,24 @@ export function GamePage() {
     } catch {}
     navigate('/')
   }
+
+  // Retour navigateur (flèche ←) + fermeture d'onglet
+  useEffect(() => {
+    const handlePopState = () => {
+      if (user && roomCodeRef.current)
+        roomService.leaveRoom(roomCodeRef.current, user.id).catch(() => {})
+    }
+    const handleUnload = () => {
+      if (user && roomCodeRef.current)
+        navigator.sendBeacon(`/api/rooms/leave?code=${roomCodeRef.current}&userId=${user.id}`)
+    }
+    window.addEventListener('popstate', handlePopState)
+    window.addEventListener('beforeunload', handleUnload)
+    return () => {
+      window.removeEventListener('popstate', handlePopState)
+      window.removeEventListener('beforeunload', handleUnload)
+    }
+  }, [user])
 
   // ─── Render ─────────────────────────────────────────────────
   const lettersLeft = longueurMot - 1 // number of letters the user types
@@ -403,6 +481,7 @@ export function GamePage() {
                     key={rowIdx}
                     style={{
                       ...styles.row,
+                      // Anime la ligne courante
                       animation: shakeRow && rowIdx === tentativeNum ? 'shake 0.4s ease' : undefined,
                     }}
                   >
@@ -496,21 +575,23 @@ export function GamePage() {
             </div>
           )}
 
-          {/* Leaderboard */}
-          {showLeaderboard && leaderboard.length > 0 && (
-            <div className="card" style={styles.leaderboard}>
-              <h3 style={styles.leaderboardTitle}>🏆 Classement final</h3>
-              {leaderboard.map((s, i) => (
-                <div key={s.id} style={styles.leaderRow}>
-                  <span style={styles.leaderRank}>#{i + 1}</span>
-                  <span style={styles.leaderUser}>{s.user?.username}</span>
-                  <span style={{ color: 'var(--gold)', fontWeight: 700 }}>{s.points ?? s.nombreEssais} pts</span>
-                </div>
-              ))}
-              <button className="btn-secondary" style={{ marginTop: '1rem', width: '100%' }} onClick={() => navigate('/')}>
-                Retour au lobby
-              </button>
-            </div>
+          {/* Scoreboard overlay fin de partie */}
+          {showLeaderboard && (
+            <ScoreboardOverlay
+              classement={classement.length > 0 ? classement : leaderboard.map((s, i) => ({
+                rang: i + 1,
+                username: s.user?.username ?? `Joueur ${i + 1}`,
+                points: s.points ?? 0,
+                nombreEssais: s.nombreEssais ?? 0,
+              }))}
+              currentUsername={username}
+              onClose={async () => {
+                if (gameId) {
+                  try { await gameService.deleteGame(gameId) } catch {}
+                }
+                navigate('/')
+              }}
+            />
           )}
         </div>
 
@@ -558,6 +639,235 @@ export function GamePage() {
       `}</style>
     </div>
   )
+}
+
+// ─── Scoreboard overlay ────────────────────────────────────────
+interface ClassementEntry { rang: number; username: string; points: number; nombreEssais: number }
+
+function ScoreboardOverlay({
+  classement,
+  currentUsername,
+  onClose,
+}: {
+  classement: ClassementEntry[]
+  currentUsername: string
+  onClose: () => void
+}) {
+  const MEDALS = ['🥇', '🥈', '🥉']
+  const winner = classement[0]
+  const isWinner = winner?.username === currentUsername
+
+  return (
+    <div style={overlayStyles.backdrop}>
+      <div style={overlayStyles.modal}>
+        {/* Confetti-like top bar */}
+        <div style={overlayStyles.topBar} />
+
+        <div style={overlayStyles.content}>
+          <div style={overlayStyles.trophy}>🏆</div>
+          <h2 style={overlayStyles.title}>Partie terminée !</h2>
+
+          {isWinner && (
+            <div style={overlayStyles.winnerBanner}>
+              🎉 Bravo {currentUsername}, tu as gagné !
+            </div>
+          )}
+
+          {/* Podium */}
+          <div style={overlayStyles.table}>
+            <div style={overlayStyles.tableHeader}>
+              <span style={{ width: '32px' }}>Rang</span>
+              <span style={{ flex: 1 }}>Joueur</span>
+              <span style={overlayStyles.colRight}>Essais</span>
+              <span style={overlayStyles.colRight}>Points</span>
+            </div>
+
+            {classement.length === 0 ? (
+              <div style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-muted)' }}>
+                Aucun score disponible
+              </div>
+            ) : (
+              classement.map((entry, i) => {
+                const isMe = entry.username === currentUsername
+                const isFirst = i === 0
+                return (
+                  <div
+                    key={entry.username}
+                    style={{
+                      ...overlayStyles.tableRow,
+                      background: isMe
+                        ? 'rgba(79,142,255,0.10)'
+                        : isFirst
+                        ? 'rgba(245,200,66,0.07)'
+                        : 'transparent',
+                      borderLeft: isMe
+                        ? '3px solid var(--accent)'
+                        : isFirst
+                        ? '3px solid var(--gold)'
+                        : '3px solid transparent',
+                      animationDelay: `${i * 80}ms`,
+                    }}
+                    className="score-row-enter"
+                  >
+                    <span style={overlayStyles.rankCell}>
+                      {MEDALS[i] ?? `#${entry.rang}`}
+                    </span>
+                    <span style={{ flex: 1, fontWeight: isMe ? 700 : 500 }}>
+                      {entry.username}
+                      {isMe && (
+                        <span style={overlayStyles.meBadge}>toi</span>
+                      )}
+                    </span>
+                    <span style={overlayStyles.colRight}>
+                      <span style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>
+                        {entry.nombreEssais} essai{entry.nombreEssais !== 1 ? 's' : ''}
+                      </span>
+                    </span>
+                    <span style={overlayStyles.colRight}>
+                      <span style={{
+                        color: isFirst ? 'var(--gold)' : isMe ? 'var(--accent)' : 'var(--text-secondary)',
+                        fontWeight: 800,
+                        fontSize: '1rem',
+                      }}>
+                        {entry.points} pts
+                      </span>
+                    </span>
+                  </div>
+                )
+              })
+            )}
+          </div>
+
+          <button
+            className="btn-primary"
+            style={{ marginTop: '1.5rem', width: '100%', fontSize: '1rem', padding: '0.85rem' }}
+            onClick={onClose}
+          >
+            Retour au lobby
+          </button>
+        </div>
+      </div>
+
+      <style>{`
+        @keyframes scoreModalIn {
+          from { opacity: 0; transform: translateY(40px) scale(0.95); }
+          to   { opacity: 1; transform: translateY(0) scale(1); }
+        }
+        @keyframes scoreRowIn {
+          from { opacity: 0; transform: translateX(-12px); }
+          to   { opacity: 1; transform: translateX(0); }
+        }
+        .score-row-enter {
+          animation: scoreRowIn 0.35s ease both;
+        }
+      `}</style>
+    </div>
+  )
+}
+
+const overlayStyles: Record<string, React.CSSProperties> = {
+  backdrop: {
+    position: 'fixed',
+    inset: 0,
+    background: 'rgba(0,0,0,0.75)',
+    backdropFilter: 'blur(6px)',
+    zIndex: 1000,
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: '1rem',
+  },
+  modal: {
+    background: 'var(--bg-card)',
+    border: '1px solid var(--border-light)',
+    borderRadius: 'var(--radius-lg)',
+    width: '100%',
+    maxWidth: '480px',
+    overflow: 'hidden',
+    animation: 'scoreModalIn 0.4s cubic-bezier(0.34,1.56,0.64,1) both',
+    boxShadow: '0 24px 64px rgba(0,0,0,0.5)',
+  },
+  topBar: {
+    height: '4px',
+    background: 'linear-gradient(90deg, var(--gold), var(--accent), var(--correct))',
+  },
+  content: {
+    padding: '2rem',
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+  },
+  trophy: {
+    fontSize: '3rem',
+    lineHeight: 1,
+    marginBottom: '0.5rem',
+  },
+  title: {
+    fontFamily: 'var(--font-display)',
+    fontSize: '1.6rem',
+    fontWeight: 900,
+    color: 'var(--text-primary)',
+    marginBottom: '1rem',
+    textAlign: 'center',
+  },
+  winnerBanner: {
+    background: 'rgba(245,200,66,0.12)',
+    border: '1px solid rgba(245,200,66,0.35)',
+    borderRadius: 'var(--radius-md)',
+    padding: '0.6rem 1.25rem',
+    color: 'var(--gold)',
+    fontWeight: 700,
+    fontSize: '0.95rem',
+    marginBottom: '1.25rem',
+    textAlign: 'center',
+  },
+  table: {
+    width: '100%',
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '2px',
+  },
+  tableHeader: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '0.75rem',
+    padding: '0.3rem 0.75rem',
+    fontSize: '0.72rem',
+    fontWeight: 700,
+    color: 'var(--text-muted)',
+    textTransform: 'uppercase',
+    letterSpacing: '0.06em',
+    marginBottom: '0.25rem',
+  },
+  tableRow: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '0.75rem',
+    padding: '0.75rem',
+    borderRadius: 'var(--radius-md)',
+    transition: 'background 0.2s',
+  },
+  rankCell: {
+    width: '32px',
+    fontSize: '1.2rem',
+    textAlign: 'center',
+    flexShrink: 0,
+  },
+  colRight: {
+    width: '80px',
+    textAlign: 'right',
+    flexShrink: 0,
+  },
+  meBadge: {
+    marginLeft: '0.4rem',
+    background: 'rgba(79,142,255,0.15)',
+    color: 'var(--accent)',
+    borderRadius: '999px',
+    padding: '0.05rem 0.4rem',
+    fontSize: '0.7rem',
+    fontWeight: 700,
+    verticalAlign: 'middle',
+  },
 }
 
 // ─── Mini keyboard hint component ─────────────────────────────

@@ -27,6 +27,9 @@ public class InvitationService {
     @Autowired
     private RoomRepository roomRepository;
 
+    @Autowired
+    private NotificationService notificationService;
+
     @Transactional
     public Invitation sendInvitation(Long expediteurId, Long destinataireId, Long roomId) {
         User expediteur = userRepository.findById(expediteurId)
@@ -49,7 +52,18 @@ public class InvitationService {
                 .dateEnvoi(LocalDateTime.now())
                 .build();
 
-        return invitationRepository.save(invitation);
+        Invitation saved = invitationRepository.save(invitation);
+
+        // Notifier le destinataire en temps réel via WebSocket
+        notificationService.notifyInvitationReceived(
+                destinataireId,
+                expediteur.getUsername(),
+                room.getNom(),
+                room.getCode(),
+                saved.getId()
+        );
+
+        return saved;
     }
 
     public List<Invitation> getPendingInvitations(Long destinataireId) {

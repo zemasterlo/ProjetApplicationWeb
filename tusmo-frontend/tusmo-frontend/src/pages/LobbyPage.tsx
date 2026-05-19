@@ -7,6 +7,7 @@ import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { roomService, invitationService } from '../services/api'
 import type { Room, Invitation } from '../services/api'
+import { wsService } from '../services/websocket'
 import { Navbar } from '../components/Navbar'
 import { useToast, ToastContainer } from '../hooks/useToast'
 
@@ -45,9 +46,20 @@ export function LobbyPage() {
 
   useEffect(() => {
     loadData()
+    if (user) {
+      wsService.connectUser(user.id, (msg) => {
+        if (msg.type === 'INVITATION_RECEIVED') {
+          show(msg.message || 'Nouvelle invitation !', 'info')
+          loadData() // Refresh invitations
+        }
+      })
+    }
     const interval = setInterval(loadData, 5000)
-    return () => clearInterval(interval)
-  }, [loadData])
+    return () => {
+      clearInterval(interval)
+      wsService.disconnectUser()
+    }
+  }, [loadData, user])
 
   async function handleCreate(e: React.FormEvent) {
     e.preventDefault()

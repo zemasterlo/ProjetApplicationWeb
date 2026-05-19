@@ -42,6 +42,12 @@ export const userService = {
 
   getUser: (id: number) =>
     request<User>(`/users/${id}`),
+
+  searchByUsername: (username: string) =>
+    request<User>(`/users/search?${qs({ username })}`),
+
+  getOnline: () =>
+    request<User[]>(`/users/online`),
 }
 
 // ─── ROOMS ───────────────────────────────────────────────────
@@ -71,7 +77,7 @@ export const gameService = {
     request<void>(`/games/${gameId}/end`, { method: 'POST' }),
 
   getHistory: (roomId: number) =>
-    request<Game[]>(`/games/room/${roomId}`),
+    request<any[]>(`/games/room/${roomId}`),
 
   getActiveGameState: (roomId: number, userId: number) =>
     request<ActiveGameState | null>(`/games/room/${roomId}/active?${qs({ userId })}`),

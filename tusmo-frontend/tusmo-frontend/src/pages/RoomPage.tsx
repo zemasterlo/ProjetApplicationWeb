@@ -30,29 +30,63 @@ export function RoomPage() {
   const chatEndRef = useRef<HTMLDivElement>(null)
   const roomId = Number(id)
 
+  // FIX 1 — garantit qu'on ne rejoint la salle qu'une seule fois par montage,
+  // même si loadRoom est rappelé (refresh, WS event, etc.)
+  const hasJoinedRef = useRef(false)
+
+  // Ref toujours à jour pour les callbacks popstate / beforeunload
+  const roomRef = useRef<Room | null>(null)
+  useEffect(() => { roomRef.current = room }, [room])
+
+  // true quand on navigue volontairement (game start, handleLeave) → pas de double leaveRoom
+  const isLeavingRef = useRef(false)
+
   const isOwner = room?.owner?.id === user?.id
 
-  // Load room + messages
+  // ── Load room + messages ─────────────────────────────────────────────────
   const loadRoom = useCallback(async () => {
     try {
       const [r, msgs] = await Promise.all([
         roomService.getRoom(id!),
         messageService.getRoom(roomId),
       ])
-      setRoom(r)
+
+      // Vérifie si l'utilisateur figure déjà dans la liste renvoyée par l'API
+      const alreadyIn = r.joueurs?.some((j: any) => j.id === user?.id)
+
+      if (!alreadyIn && !hasJoinedRef.current) {
+        // Premier join (page fraîchement chargée / naviguée depuis le lobby)
+        hasJoinedRef.current = true
+        try {
+          await roomService.joinRoom(r.code, user!.id)
+          // Recharge pour avoir la liste à jour après le join
+          const updated = await roomService.getRoom(id!)
+          setRoom(updated)
+        } catch (err: any) {
+          show(err.message || 'Impossible de rejoindre cette salle', 'error')
+          navigate('/')
+          return
+        }
+      } else {
+        // Déjà dedans (refresh, re-render, event WS) → on met juste à jour l'état
+        hasJoinedRef.current = true
+        setRoom(r)
+      }
+
       setMessages(msgs)
     } catch {
       show('Erreur chargement de la salle', 'error')
     } finally {
       setLoading(false)
     }
-  }, [id, roomId])
+  }, [id, roomId, user])
 
+  // Chargement initial
   useEffect(() => {
     loadRoom()
   }, [loadRoom])
 
-  // Connect WebSocket once room code is known
+  // ── WebSocket ────────────────────────────────────────────────────────────
   useEffect(() => {
     if (!room?.code) return
 
@@ -67,6 +101,7 @@ export function RoomPage() {
           show(`${msg.data.username} a quitté la salle`, 'info')
           break
         case 'GAME_STARTED':
+          isLeavingRef.current = true
           navigate(`/game/${roomId}`)
           break
         case 'NEW_MESSAGE':
@@ -83,10 +118,30 @@ export function RoomPage() {
     return () => wsService.disconnect()
   }, [room?.code])
 
+  // Quitter la salle au démontage : couvre flèche ←, navigate('/'), et fermeture d'onglet.
+  // Le popstate ne fonctionne pas en SPA React Router — le démontage du composant est fiable.
+  useEffect(() => {
+    // Fermeture d'onglet / rechargement complet
+    const handleUnload = () => {
+      if (user && roomRef.current)
+        navigator.sendBeacon(`/api/rooms/leave?code=${roomRef.current.code}&userId=${user.id}`)
+    }
+    window.addEventListener('beforeunload', handleUnload)
+
+    return () => {
+      window.removeEventListener('beforeunload', handleUnload)
+      // Démontage SPA (flèche ←, navigate explicite hors game) → leaveRoom sauf si déjà géré
+      if (!isLeavingRef.current && user && roomRef.current)
+        roomService.leaveRoom(roomRef.current.code, user.id).catch(() => {})
+    }
+  }, [user])
+
+  // ── Scroll chat ──────────────────────────────────────────────────────────
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages])
 
+  // ── Handlers ─────────────────────────────────────────────────────────────
   async function handleStartGame() {
     if (!room) return
     try {
@@ -98,9 +153,10 @@ export function RoomPage() {
 
   async function handleLeave() {
     if (!user || !room) return
+    isLeavingRef.current = true
     try {
       await roomService.leaveRoom(room.code, user.id)
-    } catch {}
+    } catch { }
     navigate('/')
   }
 
@@ -120,24 +176,26 @@ export function RoomPage() {
     if (!inviteUsername.trim() || !user || !room) return
     setInviting(true)
     try {
-      // Find user by username (via /api/users — we'll search by getting all and matching)
-      // For simplicity: ask the user to enter a user ID or we adapt
-      // The backend doesn't have a "find by username" endpoint, so we try numeric id
-      const targetId = Number(inviteUsername)
-      if (isNaN(targetId) || targetId <= 0) {
-        show("Entre l'ID du joueur (visible sur son profil)", 'error')
+      const target = await userService.searchByUsername(inviteUsername.trim())
+      if (target.id === user.id) {
+        show('Tu ne peux pas t\'inviter toi-même', 'error')
         return
       }
-      await invitationService.send(user.id, targetId, room.id)
-      show('Invitation envoyée !', 'success')
+      await invitationService.send(user.id, target.id, room.id)
+      show(`Invitation envoyée à ${target.username} !`, 'success')
       setInviteUsername('')
     } catch (err: any) {
-      show(err.message || 'Erreur invitation', 'error')
+      if (err.status === 404) {
+        show(`Joueur "${inviteUsername}" introuvable`, 'error')
+      } else {
+        show(err.message || 'Erreur invitation', 'error')
+      }
     } finally {
       setInviting(false)
     }
   }
 
+  // ── Render ────────────────────────────────────────────────────────────────
   if (loading) return (
     <div className="page-wrapper">
       <Navbar />
@@ -175,7 +233,10 @@ export function RoomPage() {
                 </span>
               </div>
             </div>
-            <button className="btn-danger" onClick={handleLeave}>Quitter</button>
+            <div style={{ display: 'flex', gap: '0.5rem' }}>
+              <button className="btn-secondary" onClick={() => navigate(`/room/${roomId}/history`)}>Historique</button>
+              <button className="btn-danger" onClick={handleLeave}>Quitter</button>
+            </div>
           </div>
 
           {/* Players */}
@@ -211,17 +272,16 @@ export function RoomPage() {
               <input
                 value={inviteUsername}
                 onChange={e => setInviteUsername(e.target.value)}
-                placeholder="ID du joueur"
+                placeholder="Pseudo du joueur (ex: alice)"
                 style={{ flex: 1 }}
-                type="number"
-                min={1}
+                autoComplete="off"
               />
-              <button type="submit" className="btn-secondary" disabled={inviting}>
-                Inviter
+              <button type="submit" className="btn-secondary" disabled={inviting || !inviteUsername.trim()}>
+                {inviting ? '...' : 'Inviter'}
               </button>
             </form>
             <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.4rem' }}>
-              Ton ID : <strong style={{ color: 'var(--text-secondary)' }}>{user?.id}</strong>
+              Ton pseudo : <strong style={{ color: 'var(--text-secondary)' }}>{user?.username}</strong>
             </p>
           </div>
 
