@@ -51,7 +51,7 @@ public class RoomService {
                 .owner(owner)
                 .build();
         
-        // Le créateur rejoint automatiquement la salle
+      
         room.getPlayers().add(owner);
         
         return roomRepository.save(room);
@@ -110,10 +110,10 @@ public class RoomService {
             throw new IllegalStateException("Ce joueur n'est pas dans cette salle.");
         }
 
-        // Retirer le joueur de la liste
+        
         room.getPlayers().remove(user);
 
-        // Si plus personne dans la salle → fermer (+ terminer la partie en cours si besoin)
+    
         if (room.getPlayers().isEmpty()) {
             notificationService.notifyPlayerLeft(room.getCode(), user.getUsername());
             gameRepository.findByRoomIdAndStatut(room.getId(), GameStatus.IN_PROGRESS)
@@ -123,7 +123,7 @@ public class RoomService {
             return room;
         }
 
-        // Si c'est le propriétaire qui quitte, transférer la propriété
+        
         if (room.getOwner().getId().equals(userId)) {
             room.setOwner(room.getPlayers().get(0));
         }

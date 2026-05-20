@@ -1,7 +1,4 @@
-// ============================================================
-// services/api.ts — Couche d'accès à l'API SpringBoot
-// Base URL: http://localhost:8080/api (proxied via Vite)
-// ============================================================
+
 
 const BASE = '/api'
 
@@ -29,7 +26,7 @@ function qs(params: Record<string, string | number | boolean | undefined>) {
   return p.toString()
 }
 
-// ─── USERS ───────────────────────────────────────────────────
+
 export const userService = {
   register: (username: string, email: string, password: string) =>
     request<User>(`/users/register?${qs({ username, email, password })}`, { method: 'POST' }),
@@ -50,7 +47,7 @@ export const userService = {
     request<User[]>(`/users/online`),
 }
 
-// ─── ROOMS ───────────────────────────────────────────────────
+
 export const roomService = {
   getWaiting: () =>
     request<Room[]>('/rooms/waiting'),
@@ -68,7 +65,6 @@ export const roomService = {
     request<Room>(`/rooms/leave?${qs({ code, userId })}`, { method: 'POST' }),
 }
 
-// ─── GAMES ───────────────────────────────────────────────────
 export const gameService = {
   startGame: (roomId: number, nombreRounds: number) =>
     request<Game>(`/games/start?${qs({ roomId, nombreRounds })}`, { method: 'POST' }),
@@ -83,7 +79,7 @@ export const gameService = {
     request<ActiveGameState | null>(`/games/room/${roomId}/active?${qs({ userId })}`),
 }
 
-// ─── ROUNDS ──────────────────────────────────────────────────
+
 export const roundService = {
   startNext: (gameId: number, numeroRound: number) =>
     request<Round>(`/rounds/start-next?${qs({ gameId, numeroRound })}`, { method: 'POST' }),
@@ -95,7 +91,7 @@ export const roundService = {
     request<Round>(`/rounds/${roundId}/end`, { method: 'POST' }),
 }
 
-// ─── GUESSES ─────────────────────────────────────────────────
+
 export const guessService = {
   submit: (roundId: number, userId: number, motPropose: string) =>
     request<Guess>(`/guesses?${qs({ roundId, userId, motPropose })}`, { method: 'POST' }),
@@ -104,7 +100,7 @@ export const guessService = {
     request<Guess[]>(`/guesses/round/${roundId}/user/${userId}`),
 }
 
-// ─── MESSAGES ────────────────────────────────────────────────
+
 export const messageService = {
   send: (roomId: number, userId: number, contenu: string) =>
     request<Message>(`/messages?${qs({ roomId, userId, contenu })}`, { method: 'POST' }),
@@ -113,7 +109,6 @@ export const messageService = {
     request<Message[]>(`/messages/room/${roomId}`),
 }
 
-// ─── INVITATIONS ─────────────────────────────────────────────
 export const invitationService = {
   send: (expediteurId: number, destinataireId: number, roomId: number) =>
     request<Invitation>(`/invitations/send?${qs({ expediteurId, destinataireId, roomId })}`, { method: 'POST' }),
@@ -128,7 +123,6 @@ export const invitationService = {
     request<Invitation>(`/invitations/${invitationId}/refuse`, { method: 'POST' }),
 }
 
-// ─── SCORES ──────────────────────────────────────────────────
 export const scoreService = {
   getLeaderboard: (gameId: number) =>
     request<Score[]>(`/scores/game/${gameId}/leaderboard`),
@@ -137,7 +131,6 @@ export const scoreService = {
     request<Score>(`/scores?${qs({ userId, gameId, tempsTotalSecondes, nombreEssais })}`, { method: 'POST' }),
 }
 
-// ─── TYPES ───────────────────────────────────────────────────
 export interface User {
   id: number
   username: string

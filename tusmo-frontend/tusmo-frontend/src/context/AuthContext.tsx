@@ -1,6 +1,4 @@
-// ============================================================
-// context/AuthContext.tsx
-// ============================================================
+
 
 import React, { createContext, useContext, useState, useCallback } from 'react'
 import type { User } from '../services/api'

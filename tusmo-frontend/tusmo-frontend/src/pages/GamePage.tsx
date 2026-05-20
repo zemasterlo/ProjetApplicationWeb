@@ -1,14 +1,3 @@
-// ============================================================
-// pages/GamePage.tsx — La page de jeu Tusmo
-// CORRECTIONS INTEGREES :
-//  - L'utilisateur tape les lettres APRES la première (qui est pré-remplie)
-//    → frontend préfixe automatiquement avant d'envoyer au backend
-//  - La grille est construite atomiquement depuis les guesses existants
-//    (plus de race condition entre initGrid + setGrid)
-//  - handleWebSocketMessage encapsulé dans useCallback
-//  - Anti-race condition sur les changements de round (via refs)
-// ============================================================
-
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
@@ -20,7 +9,7 @@ import { wsService } from '../services/websocket'
 import { Navbar } from '../components/Navbar'
 import { useToast, ToastContainer } from '../hooks/useToast'
 
-// ─── Types ────────────────────────────────────────────────────
+
 type CellState = 'correct' | 'present' | 'absent' | 'empty'
 
 interface Cell {
@@ -45,9 +34,7 @@ const CELL_BG: Record<CellState, string> = {
   empty:   'var(--bg-elevated)',
 }
 
-// ─── Helpers ──────────────────────────────────────────────────
 
-/** Construit une grille vide avec la première lettre pré-remplie */
 function buildEmptyGrid(wordLen: number, firstLetter: string): Cell[][] {
   return Array.from({ length: MAX_TENTATIVES }, () =>
     Array.from({ length: wordLen }, (_, c) => ({
@@ -57,10 +44,7 @@ function buildEmptyGrid(wordLen: number, firstLetter: string): Cell[][] {
   )
 }
 
-/**
- * Parse le résultat "C,P,A,A,C" en cellules colorées.
- * IMPORTANT : motPropose vient du backend tel que soumis (sans la première lettre dupliquée).
- */
+
 function parseResultat(mot: string, resultat: string): Cell[] {
   const lettres = mot.split('')
   const etats   = resultat.split(',')
@@ -71,10 +55,7 @@ function parseResultat(mot: string, resultat: string): Cell[] {
   }))
 }
 
-/**
- * Reconstruit la grille complète depuis un tableau de guesses (reprise de partie).
- * Toujours atomique : pas de double setGrid.
- */
+
 function buildGridFromGuesses(
   wordLen: number,
   firstLetter: string,
@@ -89,7 +70,6 @@ function buildGridFromGuesses(
   return grid
 }
 
-// ─── Component ────────────────────────────────────────────────
 export function GamePage() {
   const { id }   = useParams()
   const navigate = useNavigate()
@@ -99,7 +79,6 @@ export function GamePage() {
   const roomId = Number(id)
   const username = user?.username ?? ''
 
-  // Round state
   const [gameId,            setGameId]            = useState<number | null>(null)
   const [roundId,           setRoundId]           = useState<number | null>(null)
   const [premiereLettre,    setPremiereLettre]     = useState('')
@@ -109,7 +88,6 @@ export function GamePage() {
   const [roomCode,          setRoomCode]           = useState('')
   const roomCodeRef = useRef('')
 
-  // Grid
   const [grid,        setGrid]        = useState<Cell[][]>([])
   const [tentativeNum, setTentativeNum] = useState(0)
   const [roundWon,    setRoundWon]    = useState(false)
@@ -118,51 +96,34 @@ export function GamePage() {
   const [gameStarted, setGameStarted] = useState(false)
   const [shakeRow,    setShakeRow]    = useState(false)
 
-  // Input — l'user tape les lettres APRÈS la première
+ 
   const [input, setInput] = useState('')
 
-  // Chat
   const [chatMessages, setChatMessages] = useState<Message[]>([])
   const [chatInput,    setChatInput]    = useState('')
   const chatEndRef = useRef<HTMLDivElement>(null)
 
-  // Opponents
   const [opponents, setOpponents] = useState<OpponentInfo[]>([])
 
-  // Leaderboard
+
   const [leaderboard,   setLeaderboard]   = useState<Score[]>([])
   const [showLeaderboard, setShowLeaderboard] = useState(false)
 
-  // Classement final (données directement dans l'event GAME_ENDED)
   const [classement, setClassement] = useState<ClassementEntry[]>([])
 
-  // Info banner
   const [infoMessage, setInfoMessage] = useState('')
 
-  // ─── Refs anti-race-condition ────────────────────────────────
-  /**
-   * roundIdRef : miroir ref de l'état roundId.
-   * Mis à jour immédiatement à chaque changement de round (WS ou init),
-   * il permet à handleGuess de détecter — après son await — si le round
-   * a changé pendant l'appel réseau, et d'abandonner l'application du
-   * résultat périmé.
-   */
+
   const roundIdRef = useRef<number | null>(null)
 
-  /**
-   * wsRoundIdRef : dernier roundId reçu via WebSocket (NEW_ROUND / GAME_STARTED).
-   * Utilisé dans init() pour ne pas écraser l'état déjà posé par le WS
-   * si getActiveGameState() se résout après un NEW_ROUND.
-   */
+
   const wsRoundIdRef = useRef<number | null>(null)
 
-  /** Raccourci : positionne roundId dans l'état ET dans le ref en même temps. */
   const applyRoundId = (id: number) => {
     setRoundId(id)
     roundIdRef.current = id
   }
 
-  // ─── Init ───────────────────────────────────────────────────
   useEffect(() => {
     if (!user) return
 
@@ -171,12 +132,22 @@ export function GamePage() {
         const room = await roomService.getRoom(id!)
         setRoomCode(room.code)
         roomCodeRef.current = room.code
+        const isPlayer = room.joueurs?.some((j: any) => j.id === user!.id)
+        if (!isPlayer) {
+          navigate('/')
+          return
+        }
 
-        // Load chat history
+        if (room.status === 'CLOSED') {
+          setGameFinished(true)
+          setGameStarted(true)
+          return
+        }
+     
         const msgs = await messageService.getRoom(roomId)
         setChatMessages(msgs)
 
-        // Try to resume an active game
+    
         const state = await gameService.getActiveGameState(roomId, user!.id).catch(() => null)
 
         if (state) {
@@ -188,17 +159,12 @@ export function GamePage() {
           setNumeroRound(state.numeroRound)
           setNombreRoundsTotal(state.nombreRoundsTotal)
 
-          // ── Fix race condition init vs NEW_ROUND ──────────────
-          // Si le WS a déjà reçu un NEW_ROUND pour un round DIFFÉRENT
-          // (c.-à-d. getActiveGameState s'est résolu APRÈS le WS),
-          // on ne réapplique pas les guesses/roundLost/roundWon périmés :
-          // le WS a déjà positionné la grille et les flags correctement.
+       
           const wsRoundId = wsRoundIdRef.current
           const apiIsStale = wsRoundId !== null && wsRoundId !== state.roundId
 
           if (!apiIsStale) {
             const guesses = state.guesses ?? []
-            // ATOMIC: build grid + set tentativeNum in one shot
             setGrid(buildGridFromGuesses(state.longueurMot, state.premiereLettre, guesses))
             setTentativeNum(guesses.length)
 
@@ -218,9 +184,7 @@ export function GamePage() {
     return () => wsService.disconnect()
   }, [id, user])
 
-  // ─── WebSocket ──────────────────────────────────────────────
-  // On utilise un ref pour éviter que le WS se reconnecte à chaque
-  // changement de state (ce qui causait la perte des events de round).
+
   const wsStateRef = useRef({ username, nombreRoundsTotal, gameId })
   useEffect(() => {
     wsStateRef.current = { username, nombreRoundsTotal, gameId }
@@ -230,9 +194,9 @@ export function GamePage() {
     const { username, nombreRoundsTotal, gameId } = wsStateRef.current
     switch (msg.type) {
       case 'GAME_STARTED':
-        wsRoundIdRef.current = msg.data.roundId  // ← fix race condition init
+        wsRoundIdRef.current = msg.data.roundId 
         setGameStarted(true)
-        if (msg.data.gameId) setGameId(msg.data.gameId) // ← capture gameId depuis le WS
+        if (msg.data.gameId) setGameId(msg.data.gameId) 
         applyRoundId(msg.data.roundId)
         setPremiereLettre(msg.data.premiereLettre)
         setLongueurMot(msg.data.longueurMot)
@@ -267,7 +231,7 @@ export function GamePage() {
         break
 
       case 'NEW_ROUND':
-        wsRoundIdRef.current = msg.data.roundId  // ← fix race condition init
+        wsRoundIdRef.current = msg.data.roundId  
         applyRoundId(msg.data.roundId)
         setPremiereLettre(msg.data.premiereLettre)
         setLongueurMot(msg.data.longueurMot)
@@ -276,7 +240,7 @@ export function GamePage() {
         setRoundWon(false)
         setRoundLost(false)
         setTentativeNum(0)
-        setInput('')          // ← Vider l'input du round précédent
+        setInput('')          
         setOpponents([])
         setInfoMessage(`Round ${msg.data.numeroRound} / ${nombreRoundsTotal} — À vous ! 🎯`)
         break
@@ -284,12 +248,10 @@ export function GamePage() {
       case 'GAME_ENDED':
         setGameFinished(true)
         setInfoMessage('Partie terminée !')
-        // Le classement est directement dans le message WS (username, points, nombreEssais)
         if (msg.data.classement && Array.isArray(msg.data.classement)) {
           setClassement(msg.data.classement)
         }
         setShowLeaderboard(true)
-        // Fallback : si le classement WS est vide, tenter l'API avec gameId
         if (!msg.data.classement || msg.data.classement.length === 0) {
           const { gameId } = wsStateRef.current
           if (gameId) {
@@ -309,27 +271,24 @@ export function GamePage() {
         }])
         break
     }
-  }, []) // ← dépendances vides : on lit les valeurs fraîches via wsStateRef
+  }, []) 
 
-  // Connect WS when roomCode is known
+
   useEffect(() => {
     if (!roomCode) return
     wsService.connect(roomCode, handleWsMessage)
     return () => wsService.disconnect()
   }, [roomCode, handleWsMessage])
 
-  // Scroll chat
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [chatMessages])
 
-  // ─── Guess ──────────────────────────────────────────────────
+
   async function handleGuess(e: React.FormEvent) {
     e.preventDefault()
     if (!roundId || !user || roundWon || roundLost || gameFinished) return
 
-    // Le joueur tape les lettres APRES la première
-    // → mot complet = premiereLettre + input
     const motComplet = (premiereLettre + input).toUpperCase()
 
     if (motComplet.length !== longueurMot) {
@@ -339,22 +298,19 @@ export function GamePage() {
       return
     }
 
-    // ── Fix stale-closure : capture le roundId AVANT l'await ──
     const capturedRoundId = roundId
 
     try {
       const result = await guessService.submit(roundId, user.id, motComplet)
 
-      // Vérification post-await : le round a-t-il changé pendant l'appel ?
       if (roundIdRef.current !== capturedRoundId) {
         return
       }
 
       const cells = parseResultat(result.motPropose, result.resultatLettres)
 
-      // numeroEssai est 1-based côté serveur.
       const essai = result.numeroEssai ?? (tentativeNum + 1)
-      const serverRow = essai - 1   // 0-based pour la grille
+      const serverRow = essai - 1   
 
       setGrid(prev => {
         const next = [...prev]
@@ -381,7 +337,6 @@ export function GamePage() {
     }
   }
 
-  // ─── Chat ───────────────────────────────────────────────────
   async function handleChat(e: React.FormEvent) {
     e.preventDefault()
     if (!chatInput.trim() || !user) return
@@ -393,7 +348,7 @@ export function GamePage() {
     }
   }
 
-  // ─── Leave ──────────────────────────────────────────────────
+  
   async function handleLeave() {
     if (!user) return
     try {
@@ -402,7 +357,6 @@ export function GamePage() {
     navigate('/')
   }
 
-  // Retour navigateur (flèche ←) + fermeture d'onglet
   useEffect(() => {
     const handlePopState = () => {
       if (user && roomCodeRef.current)
@@ -420,8 +374,8 @@ export function GamePage() {
     }
   }, [user])
 
-  // ─── Render ─────────────────────────────────────────────────
-  const lettersLeft = longueurMot - 1 // number of letters the user types
+
+  const lettersLeft = longueurMot - 1 
 
   return (
     <div className="page-wrapper">
@@ -429,10 +383,10 @@ export function GamePage() {
 
       <div style={styles.layout}>
 
-        {/* ── GAME COLUMN ─────────────────────────────────── */}
+        {/* INTERFACE JEU*/}
         <div style={styles.gameCol}>
 
-          {/* Round header */}
+          {/* header de round */}
           <div style={styles.gameHeader}>
             <div>
               <div style={styles.roundBadge}>
@@ -445,12 +399,15 @@ export function GamePage() {
                 {gameStarted && (
                   <span style={styles.firstLetter}>{premiereLettre}</span>
                 )}
+                {gameFinished && !gameStarted && (
+                  <div>Partie terminée</div>
+                )}
               </h2>
             </div>
             <button className="btn-danger" onClick={handleLeave}>Quitter</button>
           </div>
 
-          {/* Info banner */}
+          {/* informations */}
           {infoMessage && (
             <div style={{
               ...styles.infoBanner,
@@ -465,7 +422,7 @@ export function GamePage() {
 
           {gameStarted && (
             <>
-              {/* Attempt counter */}
+              {/* compteur de tentatives */}
               <div style={styles.tentativeInfo}>
                 Tentative{' '}
                 <strong style={{ color: 'var(--accent)' }}>
@@ -474,14 +431,13 @@ export function GamePage() {
                 {' '}/ {MAX_TENTATIVES}
               </div>
 
-              {/* ── GRID ─────────────────────────────────── */}
+              {/* Grille de Jeu*/}
               <div style={styles.grid}>
                 {grid.map((row, rowIdx) => (
                   <div
                     key={rowIdx}
                     style={{
                       ...styles.row,
-                      // Anime la ligne courante
                       animation: shakeRow && rowIdx === tentativeNum ? 'shake 0.4s ease' : undefined,
                     }}
                   >
@@ -506,11 +462,11 @@ export function GamePage() {
                 ))}
               </div>
 
-              {/* ── INPUT ────────────────────────────────── */}
+              {/*vérification des Inputs*/}
               {!roundWon && !roundLost && !gameFinished && (
                 <form onSubmit={handleGuess} style={styles.inputRow}>
                   <div style={styles.inputWrapper}>
-                    {/* First letter prefix (read-only) */}
+                    {/* Premiere Lettre */}
                     <div style={styles.prefixLetter}>{premiereLettre}</div>
                     <input
                       style={styles.guessInput}
@@ -536,14 +492,14 @@ export function GamePage() {
                 </form>
               )}
 
-              {/* ── KEYBOARD HINT (mini keyboard) ────────── */}
+              {/* Indices sur le clavier */}
               {!roundWon && !roundLost && !gameFinished && (
                 <KeyboardHint grid={grid} longueurMot={longueurMot} input={input} />
               )}
             </>
           )}
 
-          {/* Opponents */}
+          {/* Adversaires */}
           {opponents.length > 0 && (
             <div className="card" style={styles.opponentsCard}>
               <h4 style={styles.opponentsTitle}>Adversaires</h4>
@@ -575,7 +531,7 @@ export function GamePage() {
             </div>
           )}
 
-          {/* Scoreboard overlay fin de partie */}
+          {/* fin de partie et affichage du score */}
           {showLeaderboard && (
             <ScoreboardOverlay
               classement={classement.length > 0 ? classement : leaderboard.map((s, i) => ({
@@ -587,7 +543,7 @@ export function GamePage() {
               currentUsername={username}
               onClose={async () => {
                 if (gameId) {
-                  try { await gameService.deleteGame(gameId) } catch {}
+                  try {} catch {}
                 }
                 navigate('/')
               }}
@@ -595,7 +551,7 @@ export function GamePage() {
           )}
         </div>
 
-        {/* ── CHAT COLUMN ─────────────────────────────────── */}
+        {/* chat*/}
         <div style={styles.chatPanel}>
           <h3 style={styles.chatTitle}>Chat</h3>
           <div style={styles.chatMessages}>
@@ -641,7 +597,7 @@ export function GamePage() {
   )
 }
 
-// ─── Scoreboard overlay ────────────────────────────────────────
+
 interface ClassementEntry { rang: number; username: string; points: number; nombreEssais: number }
 
 function ScoreboardOverlay({
@@ -660,7 +616,6 @@ function ScoreboardOverlay({
   return (
     <div style={overlayStyles.backdrop}>
       <div style={overlayStyles.modal}>
-        {/* Confetti-like top bar */}
         <div style={overlayStyles.topBar} />
 
         <div style={overlayStyles.content}>
@@ -870,7 +825,6 @@ const overlayStyles: Record<string, React.CSSProperties> = {
   },
 }
 
-// ─── Mini keyboard hint component ─────────────────────────────
 function KeyboardHint({ grid, longueurMot, input }: {
   grid: Cell[][]
   longueurMot: number
@@ -878,7 +832,7 @@ function KeyboardHint({ grid, longueurMot, input }: {
 }) {
   const ROWS = ['AZERTYUIOP', 'QSDFGHJKLM', 'WXCVBN']
 
-  // Build letter state map from played rows
+
   const letterState: Record<string, CellState> = {}
   grid.forEach(row => {
     row.forEach(cell => {
@@ -945,7 +899,6 @@ const kbStyles: Record<string, React.CSSProperties> = {
   },
 }
 
-// ─── Styles ───────────────────────────────────────────────────
 const styles: Record<string, React.CSSProperties> = {
   layout: {
     display: 'flex',

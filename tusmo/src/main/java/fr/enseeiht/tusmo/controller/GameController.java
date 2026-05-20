@@ -39,12 +39,7 @@ public class GameController {
         return ResponseEntity.ok(gameService.getGamesHistory(roomId));
     }
 
-    /**
-     * Récupère l'état actuel d'une partie en cours pour permettre la reprise.
-     * Retourne : gameId, roundId, premiereLettre, longueurMot, numeroRound,
-     * nombreRoundsTotal,
-     * et les tentatives déjà faites par le joueur.
-     */
+    
     @GetMapping("/room/{roomId}/active")
     public ResponseEntity<?> getActiveGameState(
             @PathVariable Long roomId,

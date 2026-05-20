@@ -1,6 +1,4 @@
-// ============================================================
-// pages/LobbyPage.tsx
-// ============================================================
+
 
 import { useState, useEffect, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
@@ -20,12 +18,11 @@ export function LobbyPage() {
   const [invitations, setInvitations] = useState<Invitation[]>([])
   const [loading, setLoading] = useState(true)
 
-  // Create room form
+
   const [showCreate, setShowCreate] = useState(false)
   const [roomName, setRoomName] = useState('')
   const [maxPlayers, setMaxPlayers] = useState(4)
 
-  // Join by code
   const [joinCode, setJoinCode] = useState('')
 
   const loadData = useCallback(async () => {
@@ -50,7 +47,7 @@ export function LobbyPage() {
       wsService.connectUser(user.id, (msg) => {
         if (msg.type === 'INVITATION_RECEIVED') {
           show(msg.message || 'Nouvelle invitation !', 'info')
-          loadData() // Refresh invitations
+          loadData() 
         }
       })
     }
@@ -164,7 +161,7 @@ export function LobbyPage() {
           </div>
         )}
 
-        {/* Create Room panel */}
+        {/* Room */}
         {showCreate && (
           <div className="card" style={styles.createPanel}>
             <h3 style={styles.createTitle}>Nouvelle salle</h3>
@@ -194,7 +191,7 @@ export function LobbyPage() {
           </div>
         )}
 
-        {/* Join by code */}
+        {/* Rejoindre avec le code*/}
         <div style={styles.section}>
           <form onSubmit={handleJoinByCode} style={styles.joinCodeRow}>
             <input
@@ -210,7 +207,7 @@ export function LobbyPage() {
           </form>
         </div>
 
-        {/* Rooms list */}
+        {/* liste des rooms disponibles  */}
         <div style={styles.section}>
           <div style={styles.sectionHeader}>
             <h2 style={styles.sectionTitle}>

@@ -8,10 +8,7 @@ import org.springframework.web.filter.CorsFilter;
 
 import java.util.Arrays;
 
-/**
- * Filtre CORS global qui s'applique AUSSI aux erreurs 500.
- * Remplace la config WebMvcConfigurer qui ne couvre pas les erreurs serveur.
- */
+
 @Configuration
 public class CorsFilterConfig {
 

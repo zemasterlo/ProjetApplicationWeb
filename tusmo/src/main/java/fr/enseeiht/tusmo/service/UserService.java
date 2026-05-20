@@ -29,7 +29,6 @@ public class UserService {
             throw new IllegalArgumentException("Cet email est déjà utilisé.");
         }
 
-        // Création de l'utilisateur avec le mot de passe hashé
         User user = User.builder()
                 .username(username)
                 .email(email)
@@ -51,7 +50,7 @@ public class UserService {
             throw new IllegalArgumentException("Nom d'utilisateur ou mot de passe incorrect.");
         }
 
-        // Mettre le statut en ligne à la connexion
+       
         user.setStatut(UserStatus.ONLINE);
         userRepository.save(user);
 

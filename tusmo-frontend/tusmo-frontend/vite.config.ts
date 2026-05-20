@@ -10,14 +10,15 @@ export default defineConfig({
     port: 3000,
     proxy: {
       '/api': {
-        target: 'http://localhost:8080/tusmo-0.0.1-SNAPSHOT',
+        target: 'http://147.127.135.173:8080/tusmo-0.0.1-SNAPSHOT',
         changeOrigin: true,
       },
       '/ws': {
-        target: 'http://localhost:8080/tusmo-0.0.1-SNAPSHOT',
+        target: 'http://147.127.135.173:8080/tusmo-0.0.1-SNAPSHOT',
         changeOrigin: true,
         ws: true,
       },
     },
+    host: true,
   },
 })

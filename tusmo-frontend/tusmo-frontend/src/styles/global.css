@@ -1,7 +1,4 @@
-/* ============================================
-   TUSMO — Global Design System
-   Aesthetic: Dark arcade / neon lexique
-   ============================================ */
+
 
 :root {
   --bg-deep:      #0a0b0f;
@@ -56,7 +53,7 @@ html, body, #root {
   -webkit-font-smoothing: antialiased;
 }
 
-/* Noise texture overlay */
+
 body::before {
   content: '';
   position: fixed;
@@ -67,13 +64,13 @@ body::before {
   opacity: 0.4;
 }
 
-/* Scrollbar */
+
 ::-webkit-scrollbar { width: 6px; }
 ::-webkit-scrollbar-track { background: var(--bg-surface); }
 ::-webkit-scrollbar-thumb { background: var(--border-light); border-radius: 3px; }
 ::-webkit-scrollbar-thumb:hover { background: var(--accent); }
 
-/* ============ BUTTONS ============ */
+
 button {
   font-family: var(--font-body);
   cursor: pointer;
@@ -157,7 +154,7 @@ button {
   border-color: var(--accent);
 }
 
-/* ============ INPUTS ============ */
+
 input, select, textarea {
   font-family: var(--font-body);
   background: var(--bg-surface);
@@ -176,7 +173,7 @@ input:focus, select:focus, textarea:focus {
 input::placeholder { color: var(--text-muted); }
 select option { background: var(--bg-surface); }
 
-/* ============ CARDS ============ */
+
 .card {
   background: var(--bg-card);
   border: 1px solid var(--border);
@@ -185,7 +182,7 @@ select option { background: var(--bg-surface); }
   box-shadow: var(--shadow-card);
 }
 
-/* ============ BADGE ============ */
+
 .badge {
   display: inline-block;
   padding: 0.2rem 0.6rem;
@@ -199,7 +196,7 @@ select option { background: var(--bg-surface); }
 .badge-waiting { background: rgba(212,160,23,0.15); color: var(--gold); }
 .badge-playing { background: rgba(79,142,255,0.15); color: var(--accent); }
 
-/* ============ TOAST ============ */
+
 .toast {
   position: fixed;
   bottom: 1.5rem;
@@ -225,7 +222,7 @@ select option { background: var(--bg-surface); }
   to   { opacity: 1; transform: translateX(-50%) translateY(0); }
 }
 
-/* ============ LAYOUT ============ */
+
 .page-wrapper {
   min-height: 100vh;
   display: flex;
@@ -260,7 +257,7 @@ select option { background: var(--bg-surface); }
   color: var(--text-secondary);
 }
 
-/* ============ CELL FLIP ANIMATION ============ */
+
 @keyframes flipIn {
   0%   { transform: rotateX(0deg); }
   50%  { transform: rotateX(-90deg); }

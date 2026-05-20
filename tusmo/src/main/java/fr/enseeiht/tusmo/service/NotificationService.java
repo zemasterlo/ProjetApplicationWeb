@@ -16,10 +16,7 @@ public class NotificationService {
         @Autowired
         private SimpMessagingTemplate messagingTemplate;
 
-        /**
-         * Envoie un message à tous les joueurs connectés à une salle.
-         * Le frontend doit s'abonner à : /topic/room/{roomCode}
-         */
+        
         private void sendToRoom(String roomCode, WebSocketMessage message) {
                 messagingTemplate.convertAndSend("/topic/room/" + roomCode, message);
         }
@@ -105,10 +102,7 @@ public class NotificationService {
                                 .build());
         }
 
-        /**
-         * Notifie un utilisateur qu'il a reçu une invitation.
-         * Diffusé sur /topic/user/{destinataireId} — le frontend doit s'y abonner.
-         */
+
         public void notifyInvitationReceived(Long destinataireId, String expediteurUsername,
                         String roomNom, String roomCode, Long invitationId) {
                 messagingTemplate.convertAndSend("/topic/user/" + destinataireId,

@@ -1,6 +1,4 @@
-// ============================================================
-// pages/RoomPage.tsx — Salle d'attente avant la partie
-// ============================================================
+
 
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
@@ -23,27 +21,23 @@ export function RoomPage() {
   const [nombreRounds, setNombreRounds] = useState(3)
   const [loading, setLoading] = useState(true)
 
-  // Invite a player
   const [inviteUsername, setInviteUsername] = useState('')
   const [inviting, setInviting] = useState(false)
 
   const chatEndRef = useRef<HTMLDivElement>(null)
   const roomId = Number(id)
 
-  // FIX 1 — garantit qu'on ne rejoint la salle qu'une seule fois par montage,
-  // même si loadRoom est rappelé (refresh, WS event, etc.)
   const hasJoinedRef = useRef(false)
 
-  // Ref toujours à jour pour les callbacks popstate / beforeunload
+
   const roomRef = useRef<Room | null>(null)
   useEffect(() => { roomRef.current = room }, [room])
 
-  // true quand on navigue volontairement (game start, handleLeave) → pas de double leaveRoom
+
   const isLeavingRef = useRef(false)
 
   const isOwner = room?.owner?.id === user?.id
 
-  // ── Load room + messages ─────────────────────────────────────────────────
   const loadRoom = useCallback(async () => {
     try {
       const [r, msgs] = await Promise.all([
@@ -51,15 +45,12 @@ export function RoomPage() {
         messageService.getRoom(roomId),
       ])
 
-      // Vérifie si l'utilisateur figure déjà dans la liste renvoyée par l'API
       const alreadyIn = r.joueurs?.some((j: any) => j.id === user?.id)
 
       if (!alreadyIn && !hasJoinedRef.current) {
-        // Premier join (page fraîchement chargée / naviguée depuis le lobby)
         hasJoinedRef.current = true
         try {
           await roomService.joinRoom(r.code, user!.id)
-          // Recharge pour avoir la liste à jour après le join
           const updated = await roomService.getRoom(id!)
           setRoom(updated)
         } catch (err: any) {
@@ -68,7 +59,6 @@ export function RoomPage() {
           return
         }
       } else {
-        // Déjà dedans (refresh, re-render, event WS) → on met juste à jour l'état
         hasJoinedRef.current = true
         setRoom(r)
       }
@@ -81,12 +71,11 @@ export function RoomPage() {
     }
   }, [id, roomId, user])
 
-  // Chargement initial
   useEffect(() => {
     loadRoom()
   }, [loadRoom])
 
-  // ── WebSocket ────────────────────────────────────────────────────────────
+
   useEffect(() => {
     if (!room?.code) return
 
@@ -118,10 +107,8 @@ export function RoomPage() {
     return () => wsService.disconnect()
   }, [room?.code])
 
-  // Quitter la salle au démontage : couvre flèche ←, navigate('/'), et fermeture d'onglet.
-  // Le popstate ne fonctionne pas en SPA React Router — le démontage du composant est fiable.
+
   useEffect(() => {
-    // Fermeture d'onglet / rechargement complet
     const handleUnload = () => {
       if (user && roomRef.current)
         navigator.sendBeacon(`/api/rooms/leave?code=${roomRef.current.code}&userId=${user.id}`)
@@ -130,18 +117,15 @@ export function RoomPage() {
 
     return () => {
       window.removeEventListener('beforeunload', handleUnload)
-      // Démontage SPA (flèche ←, navigate explicite hors game) → leaveRoom sauf si déjà géré
       if (!isLeavingRef.current && user && roomRef.current)
         roomService.leaveRoom(roomRef.current.code, user.id).catch(() => {})
     }
   }, [user])
 
-  // ── Scroll chat ──────────────────────────────────────────────────────────
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages])
 
-  // ── Handlers ─────────────────────────────────────────────────────────────
   async function handleStartGame() {
     if (!room) return
     try {
@@ -195,7 +179,6 @@ export function RoomPage() {
     }
   }
 
-  // ── Render ────────────────────────────────────────────────────────────────
   if (loading) return (
     <div className="page-wrapper">
       <Navbar />
@@ -219,7 +202,6 @@ export function RoomPage() {
       <Navbar />
       <div style={styles.layout}>
 
-        {/* LEFT: Room info */}
         <div style={styles.main}>
 
           {/* Header */}
@@ -239,7 +221,7 @@ export function RoomPage() {
             </div>
           </div>
 
-          {/* Players */}
+          {/* Joueurs */}
           <div className="card" style={styles.playersCard}>
             <h3 style={styles.cardTitle}>
               Joueurs ({room.joueurs?.length ?? 1} / {room.maxJoueurs})
@@ -265,7 +247,7 @@ export function RoomPage() {
             </div>
           </div>
 
-          {/* Invite */}
+          {/* Inviter */}
           <div className="card" style={{ marginBottom: '1rem' }}>
             <h3 style={styles.cardTitle}>Inviter un joueur</h3>
             <form onSubmit={handleInvite} style={{ display: 'flex', gap: '0.75rem' }}>
@@ -285,7 +267,7 @@ export function RoomPage() {
             </p>
           </div>
 
-          {/* Start game (owner only) */}
+          {/* Lancer la partie (seulement le chef) */}
           {isOwner ? (
             <div className="card" style={styles.startCard}>
               <h3 style={styles.cardTitle}>Lancer la partie</h3>
@@ -326,7 +308,7 @@ export function RoomPage() {
           )}
         </div>
 
-        {/* RIGHT: Chat */}
+        {/* Chat */}
         <div style={styles.chatPanel}>
           <h3 style={styles.chatTitle}>Chat de la salle</h3>
           <div style={styles.chatMessages}>
